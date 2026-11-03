@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xưởng Thiết Kế</title>
+<meta name="theme-color" content="#4f46e5">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🎨 Xưởng Thiết Kế</div>
+  <nav>
+    <button data-view="picker" class="nav active">Mẫu kích thước</button>
+    <button data-view="designer" class="nav">Thiết kế</button>
+    <button data-view="saved" class="nav">Thiết kế đã lưu</button>
+    <button id="toggleAI" class="nav ai">✨ Ý tưởng AI</button>
+  </nav>
+  <span id="netStatus" class="net"></span>
+</header>
+
+<main>
+  <!-- Template picker -->
+  <section id="view-picker" class="view active">
+    <h1>Chọn kích thước để bắt đầu</h1>
+    <div id="templateGrid" class="grid"></div>
+    <div class="custom card">
+      <h3>Kích thước tùy chỉnh</h3>
+      <label>Rộng <input id="customW" type="number" value="1200" min="16" max="30000"></label>
+      <label>Cao <input id="customH" type="number" value="800" min="16" max="30000"></label>
+      <select id="customUnit"><option value="px">px</option><option value="mm">mm (300dpi)</option><option value="cm">cm (300dpi)</option></select>
+      <button id="customGo" class="primary">Tạo</button>
+    </div>
+  </section>
+
+  <!-- Designer -->
+  <section id="view-designer" class="view">
+    <aside class="tools">
+      <h4>Thêm</h4>
+      <button id="addHeading">Tiêu đề</button>
+      <button id="addText">Đoạn văn</button>
+      <button id="addRect">Hình chữ nhật</button>
+      <button id="addCircle">Hình tròn</button>
+      <button id="addTriangle">Tam giác</button>
+      <button id="addLine">Đường kẻ</button>
+      <label class="btn">Tải ảnh lên<input id="uploadImg" type="file" accept="image/*" hidden></label>
+      <button id="sampleDesign">Mẫu nhanh</button>
+      <h4>Bảng màu</h4>
+      <div id="palette" class="palette"></div>
+      <input id="colorPick" type="color" value="#4f46e5" title="Chọn màu">
+      <button id="applyBg">Đặt làm nền</button>
+    </aside>
+    <div class="stage-wrap">
+      <div class="toolbar">
+        <button id="undo" title="Hoàn tác (Ctrl+Z)">↶ Hoàn tác</button>
+        <button id="redo" title="Làm lại (Ctrl+Y)">↷ Làm lại</button>
+        <button id="del" title="Xóa (Delete)">🗑 Xóa</button>
+        <span class="sep"></span>
+        <button id="front">Lên trên cùng</button>
+        <button id="forward">Lên 1 lớp</button>
+        <button id="backward">Xuống 1 lớp</button>
+        <button id="back">Xuống dưới cùng</button>
+        <span class="sep"></span>
+        <input id="designName" placeholder="Tên thiết kế" value="Thiết kế mới">
+        <button id="save" class="primary">💾 Lưu</button>
+        <select id="exportFmt"><option value="png">PNG</option><option value="jpg">JPG</option></select>
+        <select id="exportScale"><option value="1">Kích thước đầy đủ</option><option value="0.25">Xem trước 25%</option></select>
+        <button id="exportBtn" class="primary">⬇ Xuất ảnh</button>
+      </div>
+      <div id="sizeInfo" class="sizeinfo"></div>
+      <div id="dpiWarn" class="warn" hidden></div>
+      <div id="stage" class="stage"><canvas id="c"></canvas></div>
+      <div id="progress" class="progress" hidden><div></div><span></span></div>
+    </div>
+    <aside class="props">
+      <h4>Thuộc tính</h4>
+      <div id="propsBody"><p class="muted">Chọn một đối tượng để chỉnh sửa.</p></div>
+      <h4>Lớp</h4>
+      <ol id="layers" class="layers"></ol>
+    </aside>
+  </section>
+
+  <!-- Saved -->
+  <section id="view-saved" class="view">
+    <h1>Thiết kế đã lưu</h1>
+    <div id="savedGrid" class="grid"></div>
+  </section>
+</main>
+
+<!-- AI panel -->
+<aside id="aiPanel" class="aipanel" hidden>
+  <div class="aihead"><h3>✨ Ý tưởng AI</h3><button id="closeAI">✕</button></div>
+  <details id="aiSettings">
+    <summary>Cài đặt API (khóa chỉ lưu trên thiết bị này)</summary>
+    <label>Base URL (OpenAI-compatible)<input id="aiBase" value="https://api.x.ai/v1"></label>
+    <label>Model<input id="aiModel" value="grok-4"></label>
+    <label>API key<input id="aiKey" type="password" autocomplete="off" placeholder="Dán API key của bạn"></label>
+    <div class="row"><button id="aiSaveKey">Lưu cài đặt</button><button id="aiClearKey">Xóa khóa</button></div>
+    <p class="muted small">Khóa được lưu trong localStorage của trình duyệt và chỉ được gửi tới Base URL bạn chọn.</p>
+  </details>
+  <label>Bạn muốn thiết kế gì?<textarea id="aiPrompt" rows="4" placeholder="VD: Poster khai trương quán cà phê phong cách vintage ở Đà Lạt, giảm 20% tuần đầu"></textarea></label>
+  <button id="aiGo" class="primary">Tạo ý tưởng</button>
+  <div id="aiStatus" class="muted small"></div>
+  <div id="aiResult"></div>
+</aside>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="vendor/fabric.min.js"></script>
+<script src="vendor/stream-jpeg.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/export.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
