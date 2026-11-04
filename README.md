@@ -104,3 +104,36 @@ Cách hoạt động:
 - **Những gì được đồng bộ:** tên, dữ liệu thiết kế (kể cả nhiều trang) và ảnh thu nhỏ. Ảnh tải lên được lưu vào Storage `user-images/{user_id}/img/…`, còn bản trên mây chỉ giữ tham chiếu.
 - **Khóa API AI (`xtk.ai.key`) không bao giờ được đồng bộ.** Các trường có tên giống key/secret/token/password cũng bị loại bỏ trước khi gửi lên.
 - **Trạng thái** hiển thị ở thanh trên: Đã lưu lên mây / Đang chờ (n) / Đang đồng bộ / Lỗi đồng bộ.
+
+## Giai đoạn 8 — Quản trị, mẫu chung & cài đặt ứng dụng
+
+**Cài đặt phía máy chủ:** chạy `supabase/admin.sql` trong SQL Editor (sau `supabase/schema.sql`). File này tạo:
+
+- `public.admins(email)`: danh sách quản trị viên. Bảng bật RLS và chỉ cho đọc dòng của chính mình. Thêm quản trị viên bằng SQL: `insert into public.admins(email) values ('...')`.
+- `public.is_admin()`: hàm `security definer`, `stable`. Trả `true` chỉ khi email trong JWT có trong `admins` **và** email đó đã được xác minh (`auth.users.email_confirmed_at`).
+- `designs`:
+  - thêm cột `owner_email` (trigger luôn lấy từ JWT, không thể giả mạo);
+  - quản trị viên được đọc và cập nhật mọi thiết kế;
+  - xóa vẫn chỉ là xóa mềm (`deleted = true`); không có chính sách DELETE cho quản trị.
+- Storage: quản trị viên được đọc mọi ảnh trong bucket `user-images`.
+- `public_templates`: ai cũng đọc được mẫu `published`; chỉ quản trị viên được ghi.
+- `app_settings(key, value jsonb)`: ai cũng đọc được; chỉ quản trị viên được ghi. Các khóa:
+  - `accent`, `app_name`, `logo_text`, `default_font`, `greeting`, `announcement`;
+  - `features` = `{ai, stock, bg_remove, signup}`.
+
+**Trong ứng dụng (`js/admin.js`):**
+
+- Khi tải trang, ứng dụng đọc `app_settings` và áp dụng: màu nhấn, tên/logo, phông mặc định cho chữ mới, lời chào, thanh thông báo (có nút đóng) và bật/tắt tính năng. Cài đặt được lưu tạm vào `localStorage` để dùng khi ngoại tuyến.
+- Mục "⭐ Mẫu từ Xưởng" trong thư viện mẫu cũng được lưu tạm để dùng khi ngoại tuyến.
+- Tab **🛡 Quản trị** chỉ hiện khi `rpc('is_admin')` trả `true`. Quyền thật vẫn do RLS kiểm tra phía máy chủ. Tab gồm:
+  - **Thiết kế người dùng:** tìm theo tên/email; mở và sửa, rồi lưu thẳng vào bản đám mây của người dùng (không vào thư viện của quản trị viên); xóa mềm và khôi phục; đăng thành mẫu chung.
+  - **Mẫu chung:** đăng thiết kế đang mở; ẩn/hiện; đổi tên/nhóm; xóa.
+  - **Cài đặt ứng dụng:** lưu vào `app_settings`, áp dụng cho mọi người dùng.
+
+**Giới hạn:**
+
+- Quản trị viên phải đăng nhập bằng email **đã xác minh**.
+- Khi sửa thiết kế của người dùng, quản trị viên không thêm được ảnh *mới* vào thư mục Storage của người đó; ảnh đã có vẫn giữ nguyên.
+- Ảnh trong mẫu chung được nhúng dạng data URL, vì bucket là riêng tư, nên mẫu lớn sẽ nặng.
+- Bộ nhớ tạm `localStorage` có giới hạn dung lượng. Khi đầy, ảnh thu nhỏ của mẫu chung sẽ bị bỏ.
+- Khóa AI không bao giờ được đồng bộ.

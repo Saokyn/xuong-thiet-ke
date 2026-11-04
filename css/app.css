@@ -208,3 +208,20 @@ body.focus #view-designer.active{grid-template-columns:minmax(0,1fr)}body.focus 
 .cloudst{font-size:12px;white-space:nowrap;padding:2px 8px;border-radius:999px;background:#ffffff14}
 .cloudst.ok{color:#86efac}.cloudst.wait,.cloudst.busy{color:#fde68a}.cloudst.err{color:#fca5a5}.cloudst.off{color:#c7c5f0}
 #cloudBody label{display:block;margin:6px 0}
+/* admin round */
+.greeting{margin:-6px 0 12px;color:#4b5563;font-size:15px}
+.annbar{display:flex;gap:8px;align-items:center;justify-content:center;background:#fef3c7;color:#78350f;padding:6px 12px;font-size:13px;border-bottom:1px solid #fde68a}
+.annbar button{border:0;background:transparent;cursor:pointer;color:inherit}
+#pubTplWrap h2{font-size:17px;margin:4px 0 10px}#pubTplWrap{margin-bottom:18px}
+.pubtpl .thumb img{object-fit:contain}
+body.no-ai #toggleAI,body.no-ai #aiPanel,body.no-stock .rail [data-tab=stock],body.no-bgremove #bgRemove,body.no-signup #cloudSignup{display:none!important}
+#view-admin{padding:20px 24px;overflow:auto}#view-admin [data-p]{margin-top:12px}
+.admlist{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.admrow{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:8px}
+.admrow img{width:72px;height:72px;object-fit:contain;background:#f3f4f6;border-radius:6px}
+.admrow .meta{flex:1;min-width:0;display:flex;flex-direction:column}.admrow .meta small{color:#6b7280}
+.admrow.del{opacity:.6}
+.admform{display:grid;gap:10px;max-width:520px}.admform label{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.admform fieldset label{flex-direction:row;align-items:center;gap:6px}.admform fieldset{border:1px solid #e5e7eb;border-radius:8px;display:grid;gap:6px}
+.admeditbar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:60;display:flex;gap:8px;align-items:center;background:#1f1b4d;color:#fff;padding:8px 12px;border-radius:12px;box-shadow:0 6px 20px #0004;font-size:13px}
+.admeditbar[hidden],.annbar[hidden],.greeting[hidden],#pubTplWrap[hidden]{display:none!important}

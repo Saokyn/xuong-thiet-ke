@@ -38,14 +38,14 @@
     return typeof obj === 'string' ? fn(obj) : obj;
   }
   const bucket = () => sb.storage.from('user-images');
-  async function toCloud(d) {
+  async function toCloud(d, owner) { // owner: another user's id (admin editing their design: only existing images may be referenced)
     const { id, cloudId, thumb, name, updated, ...rest } = JSON.parse(JSON.stringify(d));
     for (const k of Object.keys(rest)) if (/api.?key|secret|token|password/i.test(k)) delete rest[k];
     const data = await mapSrcs(rest, async s => {
       if (!/^data:image\/[a-z+.-]+;base64,/i.test(s) || s.length < 2000) return s;
-      const path = `${user.id}/img/${await sha(s)}`;
-      const { error } = await bucket().upload(path, dataToBlob(s), { upsert: true, contentType: s.slice(5, s.indexOf(';')) });
-      if (error && !/exists|Duplicate/i.test(error.message || '')) throw error;
+      const path = `${owner || user.id}/img/${await sha(s)}`;
+      const { error } = await bucket().upload(path, dataToBlob(s), { upsert: !owner, contentType: s.slice(5, s.indexOf(';')) });
+      if (error && !/exists|Duplicate/i.test(error.message || '')) throw owner ? new Error('Không thể thêm ảnh mới vào thư mục của người dùng (chỉ giữ được ảnh sẵn có).') : error;
       return 'sb://user-images/' + path;
     });
     return { id: cloudId, name, data, thumb, updated_at: new Date(updated).toISOString(), deleted: false };
@@ -63,7 +63,7 @@
     if (!navigator.onLine) return status();
     busy = true; status('busy');
     try {
-      const { data: rows, error } = await sb.from('designs').select('id,name,data,thumb,updated_at,deleted');
+      const { data: rows, error } = await sb.from('designs').select('id,name,data,thumb,updated_at,deleted').eq('user_id', user.id);
       if (error) throw error;
       const remote = new Map((rows || []).map(r => [r.id, r])), locals = await DB.all(), byCloud = new Map();
       for (const l of locals) { if (!l.cloudId) { l.cloudId = crypto.randomUUID(); await rawPut(l); } byCloud.set(l.cloudId, l); }
@@ -102,14 +102,15 @@
   btnAcct.onclick = () => { renderDlg(); dlg.showModal(); };
   $('#cloudClose').onclick = () => dlg.close();
   btnSync.onclick = () => sync();
-  function setUser(u) { user = u || null; btnSync.hidden = !user; btnAcct.textContent = user ? '☁ ' + (user.email || 'Tài khoản').split('@')[0] : '☁ Tài khoản'; status(); if (dlg.open) renderDlg(); if (user) sync(); }
+  function setUser(u) { const was = user && user.id; user = u || null; if (was !== (user && user.id)) document.dispatchEvent(new CustomEvent('xtk:cloudauth', { detail: { user } })); btnSync.hidden = !user; btnAcct.textContent = user ? '☁ ' + (user.email || 'Tài khoản').split('@')[0] : '☁ Tài khoản'; status(); if (dlg.open) renderDlg(); if (user) sync(); }
   addEventListener('online', () => { status(); sync(); }); addEventListener('offline', () => status());
   status();
-  window.XTK_CLOUDSYNC = { sync, status, configured, queue, get user() { return user; } };
+  window.XTK_CLOUDSYNC = { sync, status, configured, queue, toCloud, fromCloud, get user() { return user; }, get client() { return sb; } };
   if (!configured) return;
   const start = () => {
     try {
       sb = (window.XTK_SUPABASE_FACTORY || ((u, k) => window.supabase.createClient(u, k, { auth: { persistSession: true, detectSessionInUrl: true } })))(C.SUPABASE_URL, C.SUPABASE_ANON_KEY);
+      document.dispatchEvent(new CustomEvent('xtk:cloudready'));
       sb.auth.onAuthStateChange((_e, s) => setUser(s && s.user));
       sb.auth.getSession().then(({ data }) => setUser(data && data.session && data.session.user));
     } catch (e) { lastErr = e.message; status(); }
