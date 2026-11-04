@@ -464,23 +464,25 @@
   let rulers = false;
   function drawRulers() {
     const top = $('#rulerTop'), left = $('#rulerLeft'); top.hidden = left.hidden = !rulers; if (!rulers || !st.tpl) return;
-    const wrap = canvas.wrapperEl, z = canvas.getZoom(), S = 20, dpr = devicePixelRatio || 1;
+    const z = canvas.getZoom(), v = canvas.viewportTransform, S = 20, dpr = devicePixelRatio || 1;
     const print = st.tpl.print, unit = print ? 300 / 2.54 : 1, uname = print ? 'cm' : 'px';
     let step = 1; const cand = [1, 2, 5]; outer: for (let p = -2; p < 6; p++) for (const c of cand) { step = c * 10 ** p; if (step * unit * z >= 60) break outer; }
     const draw = (cv, len, vertical) => {
       cv.width = (vertical ? S : len) * dpr; cv.height = (vertical ? len : S) * dpr; cv.style.width = (vertical ? S : len) + 'px'; cv.style.height = (vertical ? len : S) + 'px';
       const g = cv.getContext('2d'); g.scale(dpr, dpr); g.fillStyle = '#f8fafc'; g.fillRect(0, 0, vertical ? S : len, vertical ? len : S); g.fillStyle = '#475569'; g.strokeStyle = '#94a3b8'; g.font = '9px sans-serif';
-      const max = (vertical ? st.tpl.h : st.tpl.w) / unit;
-      for (let v = 0; v <= max + 1e-9; v += step / 5) {
-        const p = v * unit * z, major = Math.abs(v / step - Math.round(v / step)) < 1e-6;
+      const max = (vertical ? st.tpl.h : st.tpl.w) / unit, off = vertical ? v[5] : v[4];
+      const v0 = Math.max(0, Math.floor(-off / (unit * z) / step) * step);
+      for (let u = v0; u <= max + 1e-9; u += step / 5) {
+        const p = off + u * unit * z; if (p > len) break; if (p < S) continue;
+        const major = Math.abs(u / step - Math.round(u / step)) < 1e-6;
         g.beginPath(); if (vertical) { g.moveTo(S, p); g.lineTo(S - (major ? 10 : 4), p); } else { g.moveTo(p, S); g.lineTo(p, S - (major ? 10 : 4)); } g.stroke();
-        if (major) { const lb = +v.toFixed(2) + (v === 0 ? uname : ''); if (vertical) { g.save(); g.translate(8, p + 2); g.rotate(-Math.PI / 2); g.fillText(lb, 0, 0); g.restore(); } else g.fillText(lb, p + 2, 9); }
+        if (major) { const lb = +u.toFixed(2) + (u === 0 ? uname : ''); if (vertical) { g.save(); g.translate(8, p + 2); g.rotate(-Math.PI / 2); g.fillText(lb, 0, 0); g.restore(); } else g.fillText(lb, p + 2, 9); }
       }
     };
     draw(top, canvas.width, false); draw(left, canvas.height, true);
-    top.style.left = wrap.offsetLeft + 'px'; top.style.top = (wrap.offsetTop - S) + 'px';
-    left.style.left = (wrap.offsetLeft - S) + 'px'; left.style.top = wrap.offsetTop + 'px';
+    top.style.left = '0px'; top.style.top = '0px'; left.style.left = '0px'; left.style.top = '0px';
   }
+  let rulerRaf = 0; H.view = () => { if (!rulers || rulerRaf) return; rulerRaf = requestAnimationFrame(() => { rulerRaf = 0; drawRulers(); }); };
   $('#rulerToggle').onclick = () => { rulers = !rulers; $('#rulerToggle').classList.toggle('on', rulers); drawRulers(); };
   new ResizeObserver(() => setTimeout(drawRulers, 30)).observe($('#stage'));
   // Keyboard shortcuts
@@ -505,13 +507,23 @@
 
   // ================= Pages
   const thumbs = [];
-  function savePage() { st.pages[st.cur] = canvas.toJSON(PROPS); thumbs[st.cur] = X.thumb(); }
+  // Page switches are async (images load); while one is in progress the canvas is half-loaded, so saving it
+  // (e.g. a second click on "Nhân bản trang") would store an empty/partial page. All page operations are
+  // therefore queued and savePage() is a no-op while a page is loading.
+  let pageLoading = false, pageQueue = Promise.resolve();
+  const queued = fn => (...a) => (pageQueue = pageQueue.then(() => fn(...a)).catch(e => { console.warn(e); toast('Lỗi trang: ' + e.message); }));
+  function savePage() { if (pageLoading) return; const o = canvas.getActiveObject(); if (o?.isEditing) o.exitEditing(); st.pages[st.cur] = canvas.toJSON(PROPS); try { thumbs[st.cur] = X.thumb(); } catch (e) { thumbs[st.cur] = null; } }
   async function loadPage(json) {
+    pageLoading = true;
+    try { await loadPageInner(json); } finally { pageLoading = false; }
+  }
+  async function loadPageInner(json) {
     X.setRestoring(true); canvas.discardActiveObject(); canvas.clear(); canvas.backgroundColor = '#ffffff';
     if (json) await loadJSON(canvas, json);
     X.setRestoring(false); X.resetHistory(); X.snapshot(); X.refreshLayers(); X.renderProps(); X.checkDpi(); canvas.requestRenderAll();
   }
-  async function gotoPage(i, save = true) { if (save) savePage(); st.cur = i; await loadPage(st.pages[i]); renderPages(); }
+  async function gotoPageNow(i, save = true) { if (save) savePage(); st.cur = i; await loadPage(st.pages[i]); renderPages(); }
+  const gotoPage = queued(gotoPageNow);
   function renderPages() {
     const p = $('#pages'); p.innerHTML = ''; if (st.tpl) try { thumbs[st.cur] = X.thumb(); } catch (e) {}
     st.pages.forEach((_, i) => {
@@ -525,11 +537,17 @@
   ['object:added', 'object:modified', 'object:removed'].forEach(ev => canvas.on(ev, liveThumb));
   H.opened = () => { if (!X.setRestoring) return; thumbs.length = 0; renderPages(); setTimeout(drawRulers, 30); };
   H.pages = () => { thumbs.length = 0; renderPages(); };
-  $('#pageAdd').onclick = async () => { savePage(); st.pages.splice(st.cur + 1, 0, null); thumbs.splice(st.cur + 1, 0, null); await gotoPage(st.cur + 1, false); };
-  $('#pageDup').onclick = async () => { savePage(); st.pages.splice(st.cur + 1, 0, JSON.parse(JSON.stringify(st.pages[st.cur]))); thumbs.splice(st.cur + 1, 0, thumbs[st.cur]); await gotoPage(st.cur + 1, false); };
-  $('#pageDel').onclick = async () => { if (st.pages.length < 2) return toast('Thiết kế cần ít nhất 1 trang'); if (!confirm('Xóa trang ' + (st.cur + 1) + '?')) return; st.pages.splice(st.cur, 1); thumbs.splice(st.cur, 1); await gotoPage(Math.max(0, st.cur - 1), false); };
+  const addPage = queued(async () => { savePage(); st.pages.splice(st.cur + 1, 0, null); thumbs.splice(st.cur + 1, 0, null); await gotoPageNow(st.cur + 1, false); });
+  const duplicatePage = queued(async () => {
+    savePage(); const src = st.pages[st.cur]; if (!src) return;
+    st.pages.splice(st.cur + 1, 0, JSON.parse(JSON.stringify(src))); thumbs.splice(st.cur + 1, 0, thumbs[st.cur]);
+    await gotoPageNow(st.cur + 1, false); $('#pages .page.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); toast('Đã nhân bản thành trang ' + (st.cur + 1), 1800);
+  });
+  const deletePage = queued(async () => { if (st.pages.length < 2) return toast('Thiết kế cần ít nhất 1 trang'); if (!confirm('Xóa trang ' + (st.cur + 1) + '?')) return; st.pages.splice(st.cur, 1); thumbs.splice(st.cur, 1); await gotoPageNow(Math.max(0, st.cur - 1), false); });
+  $('#pageAdd').onclick = () => addPage(); $('#pageDup').onclick = () => duplicatePage(); $('#pageDel').onclick = () => deletePage();
   // Run fn for every page (loaded into the main canvas), then restore the current page
-  async function eachPage(fn) {
+  const eachPage = queued(eachPageNow);
+  async function eachPageNow(fn) {
     savePage(); const cur = st.cur, out = [];
     for (let i = 0; i < st.pages.length; i++) { if (st.pages.length > 1) { st.cur = i; await loadPage(st.pages[i]); } out.push(await fn(i)); }
     if (st.pages.length > 1) { st.cur = cur; await loadPage(st.pages[cur]); renderPages(); }
@@ -816,5 +834,5 @@
 
   // Initial pages bar; test hooks
   renderPages();
-  Object.assign(window.XTK, { doExport2, exportPDF, exportSVG, exportPNGT, exportZIP, gotoPage, savePage, renderPages, resizeJSON, openResized, applyBrand, renderBrand, makeQR, makeChart, makeTable, bulkCreate, projectData, importProject, backupZip, restoreZip, removeBg, align, group, ungroup, duplicate, toggleLock, placeImage, drawRulers, setRulers: v => { rulers = v; drawRulers(); } });
+  Object.assign(window.XTK, { duplicatePage, addPage, deletePage, doExport2, exportPDF, exportSVG, exportPNGT, exportZIP, gotoPage, savePage, renderPages, resizeJSON, openResized, applyBrand, renderBrand, makeQR, makeChart, makeTable, bulkCreate, projectData, importProject, backupZip, restoreZip, removeBg, align, group, ungroup, duplicate, toggleLock, placeImage, drawRulers, setRulers: v => { rulers = v; drawRulers(); } });
 })();

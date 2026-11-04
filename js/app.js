@@ -42,27 +42,160 @@
   fabric.Object.prototype.set({ transparentCorners: false, cornerColor: '#4f46e5', cornerStyle: 'circle', borderColor: '#4f46e5' });
   window.XTK_canvas = canvas;
 
+  // ---------- Workspace view: the Fabric canvas fills the whole stage; the page artboard is placed by the
+  // viewport transform (zoom + pan). Marquee selection, wheel zoom, Space/middle-drag pan and scrollbars all work on it.
+  const view = { fitMode: true, target: null, raf: 0 };
+  const stageEl = $('#stage'), ZMAX = 8;
+  const stageSize = () => [stageEl.clientWidth, stageEl.clientHeight];
+  const fitZoom = () => { const [W, H] = stageSize(), pad = 40; return Math.min((W - pad) / state.tpl.w, (H - pad) / state.tpl.h); };
+  const zMin = () => Math.min(0.05, fitZoom() * 0.5);
+  const clampZ = z => Math.max(zMin(), Math.min(ZMAX, z));
+  // Allowed pan range on one axis (V = viewport px, P = page px on screen): while the page fits it may sit
+  // anywhere with at least 3/4 of it inside the viewport (so zooming stays anchored on the cursor), otherwise it can scroll
+  // until its edge is a small margin inside the viewport.
+  function range(V, P) { if (P <= V) return [-0.25 * P, V - 0.75 * P]; const m = V * 0.25; return [V - P - m, m]; }
+  function setView(z, x, y) {
+    if (!state.tpl) return;
+    const [W, H] = stageSize(); z = clampZ(z);
+    const [x0, x1] = range(W, state.tpl.w * z), [y0, y1] = range(H, state.tpl.h * z);
+    x = Math.max(x0, Math.min(x1, x)); y = Math.max(y0, Math.min(y1, y));
+    canvas.setViewportTransform([z, 0, 0, z, x, y]);
+    updateViewUI();
+  }
+  // Re-layout after a resize / page change: keeps the user's zoom unless the view is in "fit" mode
   function fit() {
     if (!state.tpl) return;
-    const st = $('#stage'), pad = 40;
-    const z = Math.min((st.clientWidth - pad) / state.tpl.w, (st.clientHeight - pad) / state.tpl.h);
-    if (!(z > 0)) return;
-    canvas.setDimensions({ width: Math.round(state.tpl.w * z), height: Math.round(state.tpl.h * z) });
-    canvas.setZoom(z);
-    // controls scale with zoom so they stay usable
-    $('#sizeInfo').textContent = `${state.tpl.name}: ${state.tpl.w} × ${state.tpl.h} px · hiển thị ${(z * 100).toFixed(z < 0.1 ? 1 : 0)}%` + (state.tpl.print ? ' · in 300dpi' : '');
+    const [W, H] = stageSize(); if (!(W > 0 && H > 0)) return;
+    if (canvas.width !== W || canvas.height !== H) canvas.setDimensions({ width: W, height: H });
+    const v = canvas.viewportTransform;
+    if (view.fitMode) { const z = fitZoom(); if (!(z > 0)) return; setView(z, (W - state.tpl.w * z) / 2, (H - state.tpl.h * z) / 2); }
+    else setView(v[0], v[4], v[5]);
     canvas.requestRenderAll();
   }
+  function fitPage() { view.fitMode = true; cancelAnimationFrame(view.raf); view.target = null; fit(); }
+  // Zoom to z keeping the scene point under (px, py) (stage px) fixed
+  function zoomAt(z, px, py) {
+    if (!state.tpl) return; const v = canvas.viewportTransform, oz = v[0]; z = clampZ(z);
+    if (px == null) { const [W, H] = stageSize(); px = W / 2; py = H / 2; }
+    view.fitMode = false; setView(z, px - (px - v[4]) / oz * z, py - (py - v[5]) / oz * z);
+  }
+  // Smoothly animate towards a target zoom (mouse-wheel notches); trackpad pinch applies directly
+  function zoomSmooth(z, px, py) {
+    view.target = { z: clampZ(z), px, py };
+    if (view.raf) return;
+    const step = () => {
+      const t = view.target; if (!t) { view.raf = 0; return; }
+      const cur = canvas.getZoom(), next = Math.abs(t.z / cur - 1) < 0.004 ? t.z : cur * Math.pow(t.z / cur, 0.35);
+      zoomAt(next, t.px, t.py);
+      if (next === t.z) { view.target = null; view.raf = 0; window.XTK_HOOKS?.viewSettled?.(); } else view.raf = requestAnimationFrame(step);
+    };
+    view.raf = requestAnimationFrame(step);
+  }
+  function panBy(dx, dy) { const v = canvas.viewportTransform; view.fitMode = false; setView(v[0], v[4] + dx, v[5] + dy); }
+  function updateViewUI() {
+    if (!state.tpl) return;
+    const z = canvas.getZoom(), v = canvas.viewportTransform, [W, H] = stageSize();
+    $('#zoomPct').textContent = (z * 100).toFixed(z < 0.1 ? 1 : 0) + '%';
+    $('#sizeInfo').textContent = `${state.tpl.name}: ${state.tpl.w} × ${state.tpl.h} px · hiển thị ${(z * 100).toFixed(z < 0.1 ? 1 : 0)}%` + (state.tpl.print ? ' · in 300dpi' : '');
+    [['#hbar', W, state.tpl.w * z, v[4]], ['#vbar', H, state.tpl.h * z, v[5]]].forEach(([sel, V, P, x]) => {
+      const bar = $(sel), [a, b] = range(V, P), L = V + (b - a); bar.hidden = P <= V || b - a < 1; if (bar.hidden) return;
+      const horiz = sel === '#hbar', track = horiz ? bar.clientWidth : bar.clientHeight, th = bar.firstElementChild;
+      const len = Math.max(24, track * V / L), pos = (track - len) * (b - x) / (b - a);
+      th.style[horiz ? 'left' : 'top'] = pos + 'px'; th.style[horiz ? 'width' : 'height'] = len + 'px';
+    });
+    window.XTK_HOOKS?.view?.();
+  }
+  // Scrollbars: drag the thumb or click the track
+  ['#hbar', '#vbar'].forEach(sel => {
+    const bar = $(sel), th = bar.firstElementChild, horiz = sel === '#hbar';
+    const geom = () => { const [W, H] = stageSize(), V = horiz ? W : H, P = (horiz ? state.tpl.w : state.tpl.h) * canvas.getZoom(), [a, b] = range(V, P), track = horiz ? bar.clientWidth : bar.clientHeight; return { a, b, track, len: Math.max(24, track * V / (V + b - a)) }; };
+    const setPos = x => { const v = canvas.viewportTransform; view.fitMode = false; horiz ? setView(v[0], x, v[5]) : setView(v[0], v[4], x); };
+    th.addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation(); th.setPointerCapture(e.pointerId); th.classList.add('drag');
+      const g = geom(), start = horiz ? e.clientX : e.clientY, x0 = canvas.viewportTransform[horiz ? 4 : 5], k = (g.b - g.a) / Math.max(1, g.track - g.len);
+      const move = ev => setPos(x0 - ((horiz ? ev.clientX : ev.clientY) - start) * k);
+      const up = () => { th.classList.remove('drag'); th.removeEventListener('pointermove', move); th.removeEventListener('pointerup', up); th.removeEventListener('pointercancel', up); };
+      th.addEventListener('pointermove', move); th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up);
+    });
+    bar.addEventListener('pointerdown', e => {
+      if (e.target !== bar) return; e.preventDefault();
+      const g = geom(), r = bar.getBoundingClientRect(), click = (horiz ? e.clientX - r.left : e.clientY - r.top) - g.len / 2;
+      setPos(g.b - (g.b - g.a) * Math.max(0, Math.min(1, click / Math.max(1, g.track - g.len))));
+    });
+  });
+  // Mouse wheel / trackpad: zoom centred on the cursor (plain wheel and Ctrl+wheel = pinch); Shift+wheel pans sideways
+  stageEl.addEventListener('wheel', e => {
+    if (!state.tpl || e.target.closest('.zoombar')) return;
+    e.preventDefault();
+    const r = stageEl.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? r.height : 1, dy = e.deltaY * unit, dx = e.deltaX * unit;
+    if (e.shiftKey && !e.ctrlKey && !e.metaKey) return panBy(-(dx || dy), 0);
+    const pinch = e.ctrlKey || e.metaKey || Math.abs(dy) < 40; // trackpad pinch / fine scrolling: apply immediately
+    const f = Math.exp(-Math.max(-300, Math.min(300, dy)) * (e.ctrlKey ? 0.01 : 0.0015));
+    if (pinch) { view.target = null; zoomAt(canvas.getZoom() * f, px, py); }
+    else zoomSmooth((view.target ? view.target.z : canvas.getZoom()) * f, px, py);
+  }, { passive: false });
+  // Pan: hold Space and drag, or drag with the middle mouse button (captured before Fabric sees the press)
+  let spaceDown = false, panning = null;
+  const editingText = () => canvas.getActiveObject()?.isEditing;
+  document.addEventListener('keydown', e => {
+    if (e.code !== 'Space' || !$('#view-designer').classList.contains('active') || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.isContentEditable || editingText()) return;
+    e.preventDefault(); if (!spaceDown) { spaceDown = true; stageEl.classList.add('pan-ready'); }
+  });
+  const spaceUp = () => { spaceDown = false; stageEl.classList.remove('pan-ready'); };
+  document.addEventListener('keyup', e => { if (e.code === 'Space') spaceUp(); });
+  window.addEventListener('blur', spaceUp);
+  canvas.wrapperEl.addEventListener('mousedown', e => {
+    if (!(e.button === 1 || (e.button === 0 && spaceDown))) return;
+    e.preventDefault(); e.stopPropagation();
+    panning = { x: e.clientX, y: e.clientY }; stageEl.classList.add('panning');
+  }, true);
+  window.addEventListener('mousemove', e => { if (!panning) return; panBy(e.clientX - panning.x, e.clientY - panning.y); panning = { x: e.clientX, y: e.clientY }; });
+  window.addEventListener('mouseup', () => { if (panning) { panning = null; stageEl.classList.remove('panning'); } });
+  canvas.wrapperEl.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
+  // Zoom bar + shortcuts
+  $('#zoomIn').onclick = () => zoomSmooth(canvas.getZoom() * 1.25);
+  $('#zoomOut').onclick = () => zoomSmooth(canvas.getZoom() / 1.25);
+  $('#zoomFit').onclick = fitPage;
+  $('#zoom100').onclick = () => { view.target = null; zoomAt(1); };
+  document.addEventListener('keydown', e => {
+    if (!$('#view-designer').classList.contains('active') || !(e.ctrlKey || e.metaKey) || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomSmooth(canvas.getZoom() * 1.25); }
+    else if (e.key === '-') { e.preventDefault(); zoomSmooth(canvas.getZoom() / 1.25); }
+    else if (e.key === '0') { e.preventDefault(); fitPage(); }
+    else if (e.key === '1') { e.preventDefault(); view.target = null; zoomAt(1); }
+  });
+  // Page artboard: the page background only fills the page; outside it the workspace shows, with
+  // off-page parts of objects dimmed. Only applies on screen (exports render to their own context).
+  const origBg = canvas._renderBackground, origOv = canvas._renderOverlay;
+  canvas.controlsAboveOverlay = true;
+  canvas._renderBackground = function (ctx) {
+    if (ctx !== this.contextContainer || !state.tpl) return origBg.call(this, ctx);
+    const v = this.viewportTransform; ctx.save(); ctx.transform(v[0], v[1], v[2], v[3], v[4], v[5]);
+    ctx.beginPath(); ctx.rect(0, 0, state.tpl.w, state.tpl.h); ctx.restore();
+    ctx.save(); ctx.shadowColor = '#0003'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 6; ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
+    ctx.save(); ctx.clip(); origBg.call(this, ctx); ctx.restore();
+  };
+  canvas._renderOverlay = function (ctx) {
+    origOv.call(this, ctx);
+    if (ctx !== this.contextContainer || !state.tpl) return;
+    const v = this.viewportTransform, x = v[4], y = v[5], w = state.tpl.w * v[0], h = state.tpl.h * v[3];
+    ctx.save(); ctx.fillStyle = 'rgba(236,237,243,0.82)'; ctx.beginPath(); ctx.rect(0, 0, this.width, this.height); ctx.rect(x, y, w, h); ctx.fill('evenodd');
+    ctx.strokeStyle = '#0000001f'; ctx.lineWidth = 1; ctx.strokeRect(Math.round(x) - 0.5, Math.round(y) - 0.5, Math.round(w) + 1, Math.round(h) + 1); ctx.restore();
+  };
+  canvas.selection = true; // left-drag on empty workspace draws a selection rectangle (marquee)
+  canvas.selectionColor = 'rgba(79,70,229,0.08)'; canvas.selectionBorderColor = '#4f46e5'; canvas.selectionLineWidth = 1;
+  new ResizeObserver(() => fit()).observe(stageEl);
   window.addEventListener('resize', fit);
 
   function openTemplate(t, json) {
     state.tpl = { ...t }; state.id = json ? state.id : null; if (!openTemplate._keepPages) { state.pages = [null]; state.cur = 0; }
     canvas.clear(); canvas.backgroundColor = '#ffffff';
     history = []; hIndex = -1;
-    const after = () => { fit(); snapshot(); refreshLayers(); checkDpi(); window.XTK_HOOKS?.opened?.(); };
+    const after = () => { fitPage(); snapshot(); refreshLayers(); checkDpi(); window.XTK_HOOKS?.opened?.(); };
     if (json) { restoring = true; canvas.loadFromJSON(json, () => { restoring = false; canvas.renderAll(); after(); }); }
     else { $('#designName').value = t.name; after(); }
-    setTimeout(fit, 0);
+    setTimeout(fitPage, 0);
   }
 
   const U = () => Math.min(state.tpl.w, state.tpl.h); // unit for default sizes
@@ -299,5 +432,5 @@
 
   renderTemplates();
   // Hooks for automated tests
-  window.XTK = { fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
+  window.XTK = { fitPage, zoomAt, zoomSmooth, panBy, setView, view, fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
 })();

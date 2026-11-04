@@ -219,8 +219,10 @@ Trần Thị Bình,Kế toán</textarea>
       </div>
       <div id="sizeInfo" class="sizeinfo"></div>
       <div id="dpiWarn" class="warn" hidden></div>
-      <div id="stage" class="stage"><canvas id="rulerTop" class="ruler top" hidden></canvas><canvas id="rulerLeft" class="ruler left" hidden></canvas><canvas id="c"></canvas></div>
-      <div class="pagesbar"><div id="pages" class="pages"></div><button id="pageAdd" title="Thêm trang">＋ Trang</button><button id="pageDup" title="Nhân bản trang">⧉</button><button id="pageDel" title="Xóa trang">🗑</button></div>
+      <div id="stage" class="stage"><canvas id="rulerTop" class="ruler top" hidden></canvas><canvas id="rulerLeft" class="ruler left" hidden></canvas><canvas id="c"></canvas>
+        <div id="hbar" class="sbar h" hidden><div class="thumb"></div></div><div id="vbar" class="sbar v" hidden><div class="thumb"></div></div>
+        <div class="zoombar" role="toolbar" aria-label="Thu phóng"><button id="zoomOut" title="Thu nhỏ (Ctrl+-)" aria-label="Thu nhỏ">−</button><span id="zoomPct" title="Mức thu phóng (lăn chuột để phóng to/thu nhỏ, Space + kéo hoặc nút giữa để di chuyển)">100%</span><button id="zoomIn" title="Phóng to (Ctrl++)" aria-label="Phóng to">+</button><button id="zoomFit" title="Vừa khung (Ctrl+0)">Vừa khung</button><button id="zoom100" title="Kích thước thật (Ctrl+1)">100%</button></div></div>
+      <div class="pagesbar"><div id="pages" class="pages"></div><button id="pageAdd" title="Thêm trang">＋ Trang</button><button id="pageDup" title="Nhân bản trang hiện tại">Nhân bản trang</button><button id="pageDel" title="Xóa trang">🗑</button></div>
       <div id="progress" class="progress" hidden><div></div><span></span></div>
     </div>
     <aside class="props">

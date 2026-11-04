@@ -144,3 +144,15 @@ dialog::backdrop{background:#0006}
   .rail button span{display:none}
   #designName{width:100px}
 }
+
+/* Workspace: canvas fills the stage; page artboard positioned by the viewport transform */
+.stage .canvas-container{position:absolute!important;left:0;top:0;box-shadow:none}
+.stage.pan-ready .upper-canvas{cursor:grab!important}.stage.panning .upper-canvas{cursor:grabbing!important}
+.sbar{position:absolute;z-index:4;background:#0000000d;border-radius:6px}
+.sbar.h{left:4px;right:16px;bottom:3px;height:10px}.sbar.v{top:4px;bottom:16px;right:3px;width:10px}
+.sbar .thumb{position:absolute;background:#64748b99;border-radius:6px;cursor:pointer;touch-action:none}
+.sbar.h .thumb{top:1px;bottom:1px}.sbar.v .thumb{left:1px;right:1px}
+.sbar .thumb:hover,.sbar .thumb.drag{background:#475569cc}
+.zoombar{position:absolute;right:20px;bottom:18px;z-index:5;display:flex;align-items:center;gap:2px;background:#fff;border-radius:10px;box-shadow:0 2px 10px #0002;padding:3px;font-size:12px}
+.zoombar button{padding:3px 8px;min-width:0;font-size:12px}
+#zoomPct{min-width:46px;text-align:center;font-variant-numeric:tabular-nums;font-weight:600}
