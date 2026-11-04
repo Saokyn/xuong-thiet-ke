@@ -56,3 +56,14 @@ Static PWA. Serve: `python3 -m http.server 8765` then open http://localhost:8765
 - Ảnh chèn vào (tải lên, kéo-thả, dán, kho ảnh, ảnh AI, thành phần) luôn nằm giữa trang, vừa ~80% khung, không phóng to quá kích thước gốc (trừ ảnh rất nhỏ).
 - Thu gọn/mở 2 bảng bên (◧ / ◨, Ctrl+[ / Ctrl+] / Ctrl+\\), nhớ trạng thái trong localStorage; màn hình hẹp: bảng nổi phủ lên vùng vẽ.
 - Hộp thoại Xuất: tỉ lệ 25%–4×, chiều rộng/cao tùy chỉnh (giữ tỉ lệ), DPI + kích thước in; "Tự động tăng chất lượng" phóng to ảnh thiếu điểm ảnh trên thiết bị (tối đa 4×) trước khi xuất và cảnh báo ảnh vẫn thiếu độ phân giải; JPG mặc định 95%.
+
+## Giai đoạn 5
+- **Thanh cuộn ngang + kéo chuột phải**: giữ chuột phải và kéo để di chuyển qua lại vùng vẽ (không hiện menu ngữ cảnh); vuốt ngang trên touchpad cũng cuộn ngang; thanh cuộn ngang/dọc đồng bộ khi phóng to.
+- **Thanh tiến độ %**: phóng to ảnh và xóa vật thể báo tiến độ thật theo từng bước/dải ảnh; mở rộng ảnh (AI) hiện tiến độ ước tính. Thanh luôn tự ẩn khi xong hoặc lỗi; không chạy 2 tác vụ nặng cùng lúc.
+- **Xem trước màu trực tiếp**: chỉnh màu nền, màu chuyển sắc hay màu đối tượng → thiết kế đổi ngay; thanh “🎨 Đang xem trước màu” với **Áp dụng** (lưu 1 bước lịch sử) / **Hủy** (Esc, trả về màu cũ). Chuyển trang hoặc xuất file sẽ tự áp dụng.
+- **Bộ thiệp cưới theo chủ đề** (Sen Đỏ, Lá Xanh, Tối Giản Ánh Kim) — mỗi bộ 7 món: thiệp mời 12×17 cm, ruột thiệp 11×16 cm, phong bì 18×13 cm, thực đơn 10×21 cm, bảng tên bàn 10×7 cm, bảng chào 60×90 cm, nhãn chai 21×5 cm (300 dpi).
+- **Danh thiếp 9×5.4 cm có QR** (vCard, Zalo) và **menu QR nhà hàng** (bảng để bàn 10×15 cm, thực đơn A4 kèm QR).
+- **Biểu mẫu QR**: liên kết/văn bản, danh bạ vCard, Zalo, Wi-Fi (WPA/WEP/không mật khẩu, mạng ẩn), Google Maps; chọn màu mã.
+- **Hiệu ứng nhũ giả**: vàng, bạc, vàng hồng (dải ánh kim + bóng nhẹ) cho chữ/hình; “Bỏ nhũ” để trả về màu thường. Đây là mô phỏng in màu, không phải ép kim thật.
+- **Chế độ in** (bảng Công cụ): hiện vùng tràn lề 2/3/5 mm, vùng an toàn 3 mm, dấu cắt và đường cắt bo góc trên màn hình (không xuất ra file). PDF in dùng đúng số mm tràn lề, dấu cắt tùy chọn, và vẽ đường bế bo góc (nét đứt màu magenta) khi chọn bo góc.
+- Ảnh chụp: `screenshots/25-…` đến `33-…`.

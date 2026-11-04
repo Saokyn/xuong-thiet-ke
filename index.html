@@ -129,8 +129,20 @@
         <div class="row"><button id="drawPen">✏️ Bút</button><button id="drawHi">🖍 Bút dạ quang</button><button id="drawOff">Dừng</button></div>
         <label class="small">Độ dày <input id="drawW" type="range" min="1" max="80" value="8"></label>
         <h4>Mã QR</h4>
+        <select id="qrType" aria-label="Loại mã QR"><option value="url">Liên kết / văn bản</option><option value="vcard">Danh bạ (vCard)</option><option value="zalo">Zalo</option><option value="wifi">Wi-Fi</option><option value="maps">Google Maps</option></select>
+        <div id="qrForm" class="qrform"></div>
         <input id="qrText" placeholder="https://… hoặc nội dung" value="https://saokyn.github.io/xuong-thiet-ke/">
+        <label class="small">Màu mã <input type="color" id="qrColor" data-nopv="1" value="#111827"></label>
         <button id="qrAdd">Thêm mã QR</button>
+        <h4>Hiệu ứng nhũ (foil giả)</h4>
+        <p class="small muted">Chọn chữ/hình rồi bấm để phủ ánh kim. Bản in thường sẽ in ra màu ánh kim mô phỏng.</p>
+        <div class="row" id="foilBtns"><button data-foil="gold" class="foil-btn foil-gold">Vàng</button><button data-foil="silver" class="foil-btn foil-silver">Bạc</button><button data-foil="rose" class="foil-btn foil-rose">Vàng hồng</button><button data-foil="off">Bỏ nhũ</button></div>
+        <h4>Chế độ in</h4>
+        <label class="small"><input type="checkbox" id="pmGuides"> Hiện vùng tràn lề, vùng an toàn & dấu cắt</label>
+        <div class="row small"><label>Tràn lề <select id="pmBleed"><option value="2">2 mm</option><option value="3" selected>3 mm</option><option value="5">5 mm</option></select></label>
+        <label>Bo góc <select id="pmRadius"><option value="0">Không</option><option value="2">2 mm</option><option value="3">3 mm</option><option value="5">5 mm</option><option value="8">8 mm</option></select></label></div>
+        <label class="small"><input type="checkbox" id="pmCrop" checked> Dấu cắt khi xuất PDF</label>
+        <p class="small muted" id="pmInfo">Chỉ áp dụng cho khổ in (300 dpi). Khi xuất PDF, bật “Tràn lề + dấu cắt”.</p>
         <h4>Biểu đồ</h4>
         <textarea id="chartData" rows="4">Thứ 2: 12
 Thứ 3: 19
@@ -221,7 +233,8 @@ Trần Thị Bình,Kế toán</textarea>
       <div id="dpiWarn" class="warn" hidden></div>
       <div id="stage" class="stage"><canvas id="rulerTop" class="ruler top" hidden></canvas><canvas id="rulerLeft" class="ruler left" hidden></canvas><canvas id="c"></canvas>
         <div id="hbar" class="sbar h" hidden><div class="thumb"></div></div><div id="vbar" class="sbar v" hidden><div class="thumb"></div></div>
-        <div class="zoombar" role="toolbar" aria-label="Thu phóng"><button id="zoomOut" title="Thu nhỏ (Ctrl+-)" aria-label="Thu nhỏ">−</button><span id="zoomPct" title="Mức thu phóng (lăn chuột để phóng to/thu nhỏ, Space + kéo hoặc nút giữa để di chuyển)">100%</span><button id="zoomIn" title="Phóng to (Ctrl++)" aria-label="Phóng to">+</button><button id="zoomFit" title="Vừa khung (Ctrl+0)">Vừa khung</button><button id="zoom100" title="Kích thước thật (Ctrl+1)">100%</button></div></div>
+        <div id="colorPreviewBar" class="cpbar" hidden role="status"><span>🎨 Đang xem trước màu</span><button id="cpApply" class="primary">Áp dụng</button><button id="cpCancel">Hủy</button></div>
+        <div class="zoombar" role="toolbar" aria-label="Thu phóng"><button id="zoomOut" title="Thu nhỏ (Ctrl+-)" aria-label="Thu nhỏ">−</button><span id="zoomPct" title="Mức thu phóng (lăn chuột để phóng to/thu nhỏ, giữ chuột phải/nút giữa hoặc Space + kéo để di chuyển, Shift + lăn để cuộn ngang)">100%</span><button id="zoomIn" title="Phóng to (Ctrl++)" aria-label="Phóng to">+</button><button id="zoomFit" title="Vừa khung (Ctrl+0)">Vừa khung</button><button id="zoom100" title="Kích thước thật (Ctrl+1)">100%</button></div></div>
       <div class="pagesbar"><div id="pages" class="pages"></div><button id="pageAdd" title="Thêm trang">＋ Trang</button><button id="pageDup" title="Nhân bản trang hiện tại">Nhân bản trang</button><button id="pageDel" title="Xóa trang">🗑</button></div>
       <div id="progress" class="progress" hidden><div></div><span></span></div>
     </div>
@@ -250,7 +263,7 @@ Trần Thị Bình,Kế toán</textarea>
   <div id="expInfo" class="small exp-info"></div>
   <label class="small"><input type="checkbox" id="expBoost" checked> Tự động tăng chất lượng <span class="muted">(dựng chữ/hình vector ở độ phân giải đích, tự phóng to ảnh thiếu điểm ảnh trên thiết bị)</span></label>
   <label class="small" id="expQRow">Chất lượng JPG: <b id="expQv">95</b><input type="range" id="expQ" min="60" max="100" value="95"></label>
-  <label class="small" title="Thêm 3mm tràn lề và dấu cắt cho PDF in"><input type="checkbox" id="bleed"> Tràn lề 3mm + dấu cắt (PDF in)</label>
+  <label class="small" title="Thêm 3mm tràn lề và dấu cắt cho PDF in"><input type="checkbox" id="bleed"> Tràn lề + dấu cắt (PDF in, theo Chế độ in)</label>
   <div id="expWarn" class="warn exp-warn" hidden></div>
   <div class="row"><button id="expGo" class="primary">⬇ Xuất</button><button id="expClose">Đóng</button></div>
 </dialog>
@@ -312,6 +325,7 @@ Trần Thị Bình,Kế toán</textarea>
 <script src="js/elements.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/library.js"></script>
+<script src="js/library-print.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/export.js"></script>
 <script src="js/ai.js"></script>
@@ -320,5 +334,6 @@ Trần Thị Bình,Kế toán</textarea>
 <script src="vendor/gifenc.js"></script>
 <script src="js/phase3.js"></script>
 <script src="js/phase4.js"></script>
+<script src="js/phase5.js"></script>
 </body>
 </html>

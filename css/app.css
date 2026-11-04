@@ -43,7 +43,7 @@ h4{margin:12px 0 8px;font-size:13px;text-transform:uppercase;color:#667;letter-s
 .stage{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;background:repeating-conic-gradient(#e9eaf0 0 25%,#f3f4f8 0 50%) 0 0/20px 20px;min-height:0}
 .stage .canvas-container{box-shadow:0 6px 30px #0003}
 .progress{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 6px 24px #0003;width:360px;z-index:50}
-.progress div{height:8px;background:#4f46e5;border-radius:4px;width:0}
+.progress div{height:8px;background:#4f46e5;border-radius:4px;width:0;transition:width .15s}
 .progress span{font-size:12px}
 .props label{display:block;font-size:13px;margin-bottom:8px}
 .props label input,.props label select{width:100%;margin-top:2px}
@@ -156,3 +156,15 @@ dialog::backdrop{background:#0006}
 .zoombar{position:absolute;right:20px;bottom:18px;z-index:5;display:flex;align-items:center;gap:2px;background:#fff;border-radius:10px;box-shadow:0 2px 10px #0002;padding:3px;font-size:12px}
 .zoombar button{padding:3px 8px;min-width:0;font-size:12px}
 #zoomPct{min-width:46px;text-align:center;font-variant-numeric:tabular-nums;font-weight:600}
+
+/* ---- Phase 5: thanh xem trước màu, biểu mẫu QR, nút nhũ, chế độ in */
+.cpbar{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:30;display:flex;gap:8px;align-items:center;background:#1f1b4d;color:#fff;padding:6px 8px 6px 14px;border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.25);font-size:14px}
+.cpbar[hidden]{display:none}
+.cpbar button{border-radius:999px;padding:5px 14px}
+.cpbar button:not(.primary){background:#fff;color:#1f1b4d}
+.qrform{display:grid;gap:4px;margin:4px 0}
+.qrform label{display:grid;gap:2px}
+.foil-btn{color:#2b2112;font-weight:600;border:0}
+.foil-gold{background:linear-gradient(135deg,#7a5a12,#c9a227 25%,#fff2b0 45%,#b8892d 65%,#f7e08a 82%,#8a6a1f)}
+.foil-silver{background:linear-gradient(135deg,#6b7280,#c7ccd4 25%,#fff 45%,#9aa1ab 65%,#e5e7eb 82%,#5f6670)}
+.foil-rose{background:linear-gradient(135deg,#8c4a3f,#d99a8a 25%,#ffe1d6 45%,#b8706a 65%,#f2c2b3 82%,#7d3f37)}

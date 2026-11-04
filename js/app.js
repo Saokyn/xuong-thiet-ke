@@ -130,6 +130,7 @@
     const r = stageEl.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? r.height : 1, dy = e.deltaY * unit, dx = e.deltaX * unit;
     if (e.shiftKey && !e.ctrlKey && !e.metaKey) return panBy(-(dx || dy), 0);
+    if (!e.ctrlKey && !e.metaKey && Math.abs(dx) > Math.abs(dy)) return panBy(-dx, 0); // trackpad horizontal swipe scrolls sideways
     const pinch = e.ctrlKey || e.metaKey || Math.abs(dy) < 40; // trackpad pinch / fine scrolling: apply immediately
     const f = Math.exp(-Math.max(-300, Math.min(300, dy)) * (e.ctrlKey ? 0.01 : 0.0015));
     if (pinch) { view.target = null; zoomAt(canvas.getZoom() * f, px, py); }
@@ -145,13 +146,15 @@
   const spaceUp = () => { spaceDown = false; stageEl.classList.remove('pan-ready'); };
   document.addEventListener('keyup', e => { if (e.code === 'Space') spaceUp(); });
   window.addEventListener('blur', spaceUp);
+  // Right mouse button drags the view too (the browser context menu is suppressed over the canvas)
   canvas.wrapperEl.addEventListener('mousedown', e => {
-    if (!(e.button === 1 || (e.button === 0 && spaceDown))) return;
+    if (!(e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown))) return;
     e.preventDefault(); e.stopPropagation();
-    panning = { x: e.clientX, y: e.clientY }; stageEl.classList.add('panning');
+    panning = { x: e.clientX, y: e.clientY, btn: e.button, moved: 0 }; stageEl.classList.add('panning');
   }, true);
-  window.addEventListener('mousemove', e => { if (!panning) return; panBy(e.clientX - panning.x, e.clientY - panning.y); panning = { x: e.clientX, y: e.clientY }; });
+  window.addEventListener('mousemove', e => { if (!panning) return; const dx = e.clientX - panning.x, dy = e.clientY - panning.y; panning.moved += Math.abs(dx) + Math.abs(dy); panBy(dx, dy); panning.x = e.clientX; panning.y = e.clientY; });
   window.addEventListener('mouseup', () => { if (panning) { panning = null; stageEl.classList.remove('panning'); } });
+  stageEl.addEventListener('contextmenu', e => { if (!e.target.closest('.zoombar')) e.preventDefault(); });
   canvas.wrapperEl.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
   // Zoom bar + shortcuts
   $('#zoomIn').onclick = () => zoomSmooth(canvas.getZoom() * 1.25);
@@ -241,20 +244,36 @@
     const o = canvas.getActiveObject(); if (!o) return;
     const targets = o.type === 'activeSelection' ? o.getObjects() : [o];
     targets.forEach(t => t.type === 'line' || (t.type === 'path' && !t.fill) ? t.set('stroke', c) : t.type === 'group' ? t.getObjects().forEach(x => x.set(x.type === 'line' ? 'stroke' : 'fill', c)) : t.set('fill', c));
-    canvas.requestRenderAll(); snapshot(); renderProps();
+    canvas.requestRenderAll(); snapshot(); if (!preview.on) renderProps();
   }
-  $('#colorPick').oninput = e => applyColor(e.target.value);
-  $('#applyBg').onclick = () => window.XTK_HOOKS.setBg(color());
+  // With an object selected the picker recolours it; with nothing selected it previews the page background
+  $('#colorPick').oninput = e => canvas.getActiveObject() ? applyColor(e.target.value) : window.XTK_HOOKS.setBg(e.target.value);
+  $('#applyBg').onclick = () => { window.XTK_HOOKS.setBg(color()); previewCommit(); };
 
   // ---------- History
+  // Live colour preview: while a session is open colour edits render live but are not recorded;
+  // "Áp dụng" records one history step, "Hủy" (or Esc / undo) restores the last committed state.
+  const preview = { on: false };
+  function previewBegin() {
+    if (preview.on || !state.tpl) return; snapshot(); preview.on = true;
+    $('#colorPreviewBar').hidden = false; document.body.classList.add('color-previewing');
+  }
+  function previewEnd() { preview.on = false; $('#colorPreviewBar').hidden = true; document.body.classList.remove('color-previewing'); }
+  function previewCommit(quiet) { if (!preview.on) return false; previewEnd(); snapshot(); refreshLayers(); renderProps(); if (!quiet) toast('Đã áp dụng màu', 1200); return true; }
+  function previewCancel() { if (!preview.on) return false; previewEnd(); restore(hIndex); toast('Đã hủy, trả lại màu cũ', 1200); return true; }
+  $('#cpApply').onclick = () => previewCommit(); $('#cpCancel').onclick = () => previewCancel();
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && preview.on) { e.preventDefault(); previewCancel(); } });
+  // Any colour input in the designer starts a session before its own handler runs (capture phase)
+  document.addEventListener('input', e => { const t = e.target; if (t.type === 'color' && !t.dataset.nopv && t.closest('#view-designer') && !t.closest('[data-tab="brand"]')) previewBegin(); }, true);
   function snapshot() {
-    if (restoring || !state.tpl) return;
+    if (restoring || !state.tpl || preview.on) return;
     const j = JSON.stringify(canvas.toJSON(P()));
     if (history[hIndex] === j) return;
     history = history.slice(0, hIndex + 1); history.push(j);
     if (history.length > 60) history.shift(); hIndex = history.length - 1;
   }
   function restore(i) {
+    if (preview.on) { previewEnd(); i = hIndex; } // undo/redo while previewing = cancel the preview
     if (i < 0 || i >= history.length) return;
     hIndex = i; restoring = true;
     canvas.loadFromJSON(history[i], () => { restoring = false; canvas.renderAll(); refreshLayers(); renderProps(); checkDpi(); });
@@ -432,5 +451,5 @@
 
   renderTemplates();
   // Hooks for automated tests
-  window.XTK = { fitPage, zoomAt, zoomSmooth, panBy, setView, view, fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
+  window.XTK = { colorPreview: preview, previewBegin, previewCommit, previewCancel, fitPage, zoomAt, zoomSmooth, panBy, setView, view, fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
 })();

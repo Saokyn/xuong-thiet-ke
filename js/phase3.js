@@ -264,9 +264,27 @@ If the request violates these rules, rewrite it into a safe alternative. Reply O
     for (let i = 0; i < a.length; i += 4) for (let j = 0; j < 3; j++) a[i + j] = a[i + j] + k * (a[i + j] - b[i + j]);
     g.putImageData(A, 0, 0); return { canvas: out, f: tw / (el.naturalWidth || el.width) };
   }
+  const tick = () => new Promise(r => setTimeout(r, 0));
+  // Same algorithm as upscaleCanvas, but yields between steps/strips so the % progress bar can repaint (real progress)
+  async function upscaleCanvasAsync(el, f, report = () => {}) {
+    const MAX = 8192; f = Math.min(f, MAX / Math.max(el.width || el.naturalWidth, el.height || el.naturalHeight));
+    let cur = el, w = el.naturalWidth || el.width, h = el.naturalHeight || el.height; const tw = Math.round(w * f), th = Math.round(h * f);
+    const steps = Math.max(1, Math.ceil(Math.log2(Math.max(1, tw / w)))); let k = 0;
+    while (w < tw) { const nw = Math.min(tw, w * 2), nh = Math.min(th, h * 2), c = mkCanvas(nw, nh), g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(cur, 0, 0, nw, nh); cur = c; w = nw; h = nh; report(0.3 * ++k / steps, `Đang phóng to: bước ${k}/${steps}`); await tick(); }
+    const out = cur.getContext ? cur : (() => { const c = mkCanvas(tw, th); c.getContext('2d').drawImage(cur, 0, 0, tw, th); return c; })();
+    const bl = mkCanvas(tw, th), bg = bl.getContext('2d'); bg.filter = `blur(${Math.max(0.6, f / 2)}px)`; bg.drawImage(out, 0, 0); report(0.35, 'Đang làm nét'); await tick();
+    const g = out.getContext('2d'), S = Math.max(1, Math.floor(1.5e6 / tw)), kk = 0.6;
+    for (let y = 0; y < th; y += S) {
+      const hh = Math.min(S, th - y), A = g.getImageData(0, y, tw, hh), B = bg.getImageData(0, y, tw, hh), a = A.data, b = B.data;
+      for (let i = 0; i < a.length; i += 4) for (let j = 0; j < 3; j++) a[i + j] = a[i + j] + kk * (a[i + j] - b[i + j]);
+      g.putImageData(A, 0, y); report(0.35 + 0.55 * (y + hh) / th, 'Đang làm nét'); await tick();
+    }
+    bl.width = bl.height = 0; return { canvas: out, f: tw / (el.naturalWidth || el.width) };
+  }
   async function upscale(o, f) {
     o = o || selImg(); if (!o) return;
-    const r = upscaleCanvas(srcEl(o), f); await setSrc(o, r.canvas.toDataURL('image/png'), r.f);
+    const r = await X.prog.run('Đang phóng to ảnh', async rep => { const r = await upscaleCanvasAsync(srcEl(o), f, rep); rep(0.93, 'Đang cập nhật ảnh'); await tick(); await setSrc(o, r.canvas.toDataURL('image/png'), r.f); rep(1, 'Xong'); return r; });
+    if (!r) return;
     toast(`Đã phóng to ${r.f.toFixed(1)}× trên thiết bị (${r.canvas.width}×${r.canvas.height}px)`); return [r.canvas.width, r.canvas.height];
   }
   $('#itUp2').onclick = () => upscale(null, 2); $('#itUp4').onclick = () => upscale(null, 4);
@@ -279,13 +297,14 @@ If the request violates these rules, rewrite it into a safe alternative. Reply O
     const r = new fabric.Rect({ left: b.left + b.width * 0.35, top: b.top + b.height * 0.35, width: b.width * 0.3, height: b.height * 0.3, fill: '#ef444455', stroke: '#ef4444', strokeWidth: 2, strokeUniform: true, strokeDashArray: [8, 6], name: '__erase', excludeFromExport: true });
     canvas.add(r); canvas.setActiveObject(r); canvas.requestRenderAll(); toast('Kéo/co giãn khung đỏ phủ vật thể, rồi bấm “Xóa vật thể”'); return r;
   }
-  function inpaint(c, x0, y0, x1, y1) {
+  async function inpaint(c, x0, y0, x1, y1, report = () => {}) {
     const W = c.width, Hh = c.height, g = c.getContext('2d'), img = g.getImageData(0, 0, W, Hh), d = img.data;
     x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0)); x1 = Math.min(W, Math.ceil(x1)); y1 = Math.min(Hh, Math.ceil(y1));
     const M = new Uint8Array(W * Hh); let todo = [];
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { M[y * W + x] = 1; todo.push(y * W + x); }
-    const N = [-1, 1, -W, W, -W - 1, -W + 1, W - 1, W + 1];
+    const N = [-1, 1, -W, W, -W - 1, -W + 1, W - 1, W + 1], total = todo.length || 1; let t0 = performance.now();
     while (todo.length) {
+      if (performance.now() - t0 > 40) { report(0.9 * (1 - todo.length / total), 'Đang xóa vật thể'); await tick(); t0 = performance.now(); }
       const front = [], rest = [];
       for (const p of todo) { const x = p % W; let n = 0; for (const o of N) { const q = p + o, qx = q % W; if (q >= 0 && q < W * Hh && Math.abs(qx - x) <= 1 && !M[q]) n++; } (n ? front : rest).push(p); }
       if (!front.length) break;
@@ -305,8 +324,12 @@ If the request violates these rules, rewrite it into a safe alternative. Reply O
     const pts = r.getCoords(true, true).map(p => fabric.util.transformPoint(p, inv)).map(p => ({ x: p.x + o.width / 2 + (o.cropX || 0), y: p.y + o.height / 2 + (o.cropY || 0) }));
     const el = srcEl(o), W = el.naturalWidth || el.width, Hh = el.naturalHeight || el.height, c = mkCanvas(W, Hh); c.getContext('2d').drawImage(el, 0, 0);
     const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-    inpaint(c, Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys));
-    canvas.remove(r); eraseTarget = null; await setSrc(o, c.toDataURL('image/png'), 1); canvas.setActiveObject(o); toast('Đã xóa vật thể (trên thiết bị)'); return true;
+    const ok = await X.prog.run('Đang xóa vật thể', async rep => {
+      await inpaint(c, Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys), rep);
+      rep(0.93, 'Đang cập nhật ảnh'); await tick();
+      canvas.remove(r); eraseTarget = null; await setSrc(o, c.toDataURL('image/png'), 1); rep(1, 'Xong'); return true;
+    });
+    if (!ok) return; canvas.setActiveObject(o); toast('Đã xóa vật thể (trên thiết bị)'); return true;
   }
   $('#itEraseArea').onclick = () => markErase(); $('#itEraseGo').onclick = () => eraseObject();
   // Expand / outpaint
@@ -318,7 +341,11 @@ If the request violates these rules, rewrite it into a safe alternative. Reply O
     og.drawImage(m, dx, dy, w, h, dx, dy, w, h); return { canvas: out, dx, dy, w, h };
   }
   async function expand(o, p, useAI) {
-    o = o || selImg(); if (!o) return; const el = srcEl(o);
+    o = o || selImg(); if (!o) return;
+    return X.prog.run('Đang mở rộng ảnh', rep => expandRun(o, p, useAI, rep));
+  }
+  async function expandRun(o, p, useAI, rep) {
+    const el = srcEl(o);
     let result = null, how = 'trên thiết bị';
     if (useAI) {
       try {
@@ -329,7 +356,8 @@ If the request violates these rules, rewrite it into a safe alternative. Reply O
         const extra = ($('#itExpPrompt').value || '').trim(); const bad = extra && checkImagePrompt(extra); if (bad) throw new Error(bad);
         fd.append('prompt', 'Extend the scene naturally into the transparent border, matching style and lighting. ' + extra + ' ' + POLICY);
         fd.append('model', $('#aiImgModel').value.trim() || IMG_DEF); fd.append('n', '1');
-        const res = await fetch(base + '/images/edits', { method: 'POST', headers: { Authorization: 'Bearer ' + key }, body: fd });
+        const stop = X.prog.fake('Đang chờ AI mở rộng ảnh'); let res;
+        try { res = await fetch(base + '/images/edits', { method: 'POST', headers: { Authorization: 'Bearer ' + key }, body: fd }); } finally { stop(); }
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const d = await res.json(), it = d.data?.[0] || {};
         const url = it.b64_json ? 'data:image/png;base64,' + it.b64_json : safeUrl(it.url) ? await fetchAsDataURL(it.url) : null; if (!url) throw new Error('phản hồi không hợp lệ');
@@ -337,7 +365,8 @@ If the request violates these rules, rewrite it into a safe alternative. Reply O
         const k = im.width / (w * (1 + 2 * p)); result = { canvas: out, dx: w * p * k, dy: h * p * k, w: w * k, h: h * k }; how = 'bằng AI';
       } catch (e) { toast('Mở rộng bằng AI không khả dụng (' + e.message + ') — dùng cách trên thiết bị'); }
     }
-    result = result || expandLocal(el, p);
+    if (!result) { rep(0.3, 'Đang mở rộng trên thiết bị'); await tick(); result = expandLocal(el, p); }
+    rep(0.9, 'Đang cập nhật ảnh'); await tick();
     const k = result.w / (el.naturalWidth || el.width); // pixels per source pixel
     const cx = (o.cropX || 0) * k + result.dx - o.width * k * p, cy = (o.cropY || 0) * k + result.dy - o.height * k * p;
     await setSrc(o, result.canvas.toDataURL('image/png'), k, { w: o.width * (1 + 2 * p), h: o.height * (1 + 2 * p), cx: Math.max(0, cx / k), cy: Math.max(0, cy / k) });
@@ -476,5 +505,5 @@ If the request violates these rules, rewrite it into a safe alternative. Reply O
   $('#animWebm').onclick = () => exportWebM().catch(e => toast('Xuất WebM thất bại: ' + e.message));
   $('#animGif').onclick = () => exportGIF().catch(e => toast('Xuất GIF thất bại: ' + e.message));
 
-  Object.assign(window.XTK, { upscaleCanvas, stockSearch, addStock, sanitizeCopy, aiCopy, sanitizeDesign, designJSON, applyDesign, aiDesign, checkImagePrompt, genImage, refinePrompt, placeAI, upscale, markErase, eraseObject, expand, sanitizeFabric, loadCommunity, openCommunity, setAnim, autoAnim, preview, exportWebM, exportGIF });
+  Object.assign(window.XTK, { upscaleCanvas, upscaleCanvasAsync, inpaint, stockSearch, addStock, sanitizeCopy, aiCopy, sanitizeDesign, designJSON, applyDesign, aiDesign, checkImagePrompt, genImage, refinePrompt, placeAI, upscale, markErase, eraseObject, expand, sanitizeFabric, loadCommunity, openCommunity, setAnim, autoAnim, preview, exportWebM, exportGIF });
 })();

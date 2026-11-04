@@ -9,7 +9,18 @@
   const tick = () => new Promise(r => setTimeout(r, 0));
   fabric.filterBackend = new fabric.Canvas2dFilterBackend();
   function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); }
-  const prog = { on(f, m) { const p = $('#progress'); p.hidden = false; p.querySelector('div').style.width = (f * 100) + '%'; p.querySelector('span').textContent = m; }, off() { $('#progress').hidden = true; } };
+  // Progress bar: every long task reports a fraction 0..1; the label always shows the percentage
+  const prog = { busy: false,
+    on(f, m = '') { const p = $('#progress'), pct = Math.max(0, Math.min(100, Math.round(f * 100))); p.hidden = false; p.setAttribute('role', 'progressbar'); p.setAttribute('aria-valuenow', pct); p.querySelector('div').style.width = pct + '%'; p.querySelector('span').textContent = /\d%/.test(m) ? m : (m ? m + ' · ' : '') + pct + '%'; },
+    off() { $('#progress').hidden = true; },
+    // run(label, async report => …): shows the bar, guarantees it is hidden afterwards and blocks a second task meanwhile
+    async run(label, fn) {
+      if (prog.busy) { toast('Đang xử lý một tác vụ khác, vui lòng đợi…'); return undefined; }
+      prog.busy = true; prog.on(0, label); await tick();
+      try { return await fn((f, m) => prog.on(f, m || label)); } finally { prog.busy = false; prog.off(); }
+    },
+    // fake(label): estimated progress for steps that give no feedback (network calls); approaches 90% until stopped
+    fake(label, ms = 8000) { const t0 = performance.now(); let id = setInterval(() => prog.on(0.9 * (1 - Math.exp(-(performance.now() - t0) / ms * 2.3)), label + ' (ước tính)'), 120); return () => clearInterval(id); } };
   const loadJSON = (c, json) => new Promise(r => c.loadFromJSON(json, () => { c.renderAll(); r(); }));
   const readFile = (f, as = 'dataURL') => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; as === 'text' ? r.readAsText(f) : as === 'buf' ? r.readAsArrayBuffer(f) : r.readAsDataURL(f); });
   const add = (o, pos) => { if (pos) { canvas.add(o); o.setPositionByOrigin(new fabric.Point(pos.x, pos.y), 'center', 'center'); o.setCoords(); canvas.setActiveObject(o); canvas.requestRenderAll(); } else X.center(o); };
@@ -522,7 +533,7 @@
     if (json) await loadJSON(canvas, json);
     X.setRestoring(false); X.resetHistory(); X.snapshot(); X.refreshLayers(); X.renderProps(); X.checkDpi(); canvas.requestRenderAll();
   }
-  async function gotoPageNow(i, save = true) { if (save) savePage(); st.cur = i; await loadPage(st.pages[i]); renderPages(); }
+  async function gotoPageNow(i, save = true) { X.previewCommit?.(true); if (save) savePage(); st.cur = i; await loadPage(st.pages[i]); renderPages(); }
   const gotoPage = queued(gotoPageNow);
   function renderPages() {
     const p = $('#pages'); p.innerHTML = ''; if (st.tpl) try { thumbs[st.cur] = X.thumb(); } catch (e) {}
@@ -565,7 +576,7 @@
   }
   async function exportPDF() {
     const { jsPDF } = window.jspdf, t = st.tpl, pxmm = t.print ? 25.4 / 300 : 25.4 / 96;
-    const bleed = $('#bleed').checked && t.print ? 3 : 0, bpx = bleed / pxmm;
+    const bleed = $('#bleed').checked && t.print ? (+($('#pmBleed')?.value) || 3) : 0, crops = $('#pmCrop') ? $('#pmCrop').checked : true, rad = +($('#pmRadius')?.value || 0), bpx = bleed / pxmm;
     const Wmm = t.w * pxmm + 2 * bleed, Hmm = t.h * pxmm + 2 * bleed;
     const maxSide = 7000, sc = Math.min(+$('#exportScale').value, maxSide / Math.max(t.w + 2 * bpx, t.h + 2 * bpx));
     const pdf = new jsPDF({ unit: 'mm', format: [Wmm, Hmm], orientation: Wmm > Hmm ? 'l' : 'p', compress: true });
@@ -579,13 +590,17 @@
       if (i) pdf.addPage([Wmm, Hmm], Wmm > Hmm ? 'l' : 'p');
       pdf.addImage(c2.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, Wmm, Hmm, undefined, 'FAST');
       el.width = el.height = c2.width = c2.height = 0;
-      if (bleed) { // crop marks inside the bleed zone
+      if (rad > 0) { // die-cut line for rounded corners (vector, spot-colour magenta)
+        pdf.setDrawColor(236, 0, 140); pdf.setLineWidth(0.2); pdf.setLineDashPattern([1.5, 1], 0);
+        pdf.roundedRect(bleed, bleed, Wmm - 2 * bleed, Hmm - 2 * bleed, rad, rad, 'S'); pdf.setLineDashPattern([], 0);
+      }
+      if (bleed && crops) { // crop marks inside the bleed zone
         pdf.setDrawColor(0); pdf.setLineWidth(0.15);
         [[bleed, 0, bleed, bleed * 0.8], [0, bleed, bleed * 0.8, bleed], [Wmm - bleed, 0, Wmm - bleed, bleed * 0.8], [Wmm, bleed, Wmm - bleed * 0.8, bleed], [bleed, Hmm, bleed, Hmm - bleed * 0.8], [0, Hmm - bleed, bleed * 0.8, Hmm - bleed], [Wmm - bleed, Hmm, Wmm - bleed, Hmm - bleed * 0.8], [Wmm, Hmm - bleed, Wmm - bleed * 0.8, Hmm - bleed]].forEach(l => pdf.line(...l));
       }
     });
     const blob = pdf.output('blob'); prog.off();
-    download(blob, `${fname()}${bleed ? '_tran-le-3mm' : ''}.pdf`);
+    download(blob, `${fname()}${bleed ? '_tran-le-' + bleed + 'mm' : ''}.pdf`);
     toast(`Đã xuất PDF ${st.pages.length} trang · ${Wmm.toFixed(1)}×${Hmm.toFixed(1)} mm${sc < 1 ? ' (ảnh ' + Math.round(sc * 100) + '% vì khổ lớn)' : ''}`);
     return { blob, Wmm, Hmm, pages: st.pages.length };
   }
@@ -616,6 +631,7 @@
     const blob = await zip.generateAsync({ type: 'blob' }); prog.off(); download(blob, fname() + '_cac-trang.zip'); toast(`Đã xuất ZIP ${st.pages.length} trang`); return { blob };
   }
   async function doExport2(fmt) {
+    X.previewCommit?.(true);
     try {
       if (fmt === 'png' || fmt === 'jpg') return await X.doExport(fmt, +$('#exportScale').value);
       return await ({ 'png-t': exportPNGT, pdf: exportPDF, svg: exportSVG, zip: exportZIP })[fmt]();
@@ -834,5 +850,5 @@
 
   // Initial pages bar; test hooks
   renderPages();
-  Object.assign(window.XTK, { duplicatePage, addPage, deletePage, doExport2, exportPDF, exportSVG, exportPNGT, exportZIP, gotoPage, savePage, renderPages, resizeJSON, openResized, applyBrand, renderBrand, makeQR, makeChart, makeTable, bulkCreate, projectData, importProject, backupZip, restoreZip, removeBg, align, group, ungroup, duplicate, toggleLock, placeImage, drawRulers, setRulers: v => { rulers = v; drawRulers(); } });
+  Object.assign(window.XTK, { prog, gradObj, duplicatePage, addPage, deletePage, doExport2, exportPDF, exportSVG, exportPNGT, exportZIP, gotoPage, savePage, renderPages, resizeJSON, openResized, applyBrand, renderBrand, makeQR, makeChart, makeTable, bulkCreate, projectData, importProject, backupZip, restoreZip, removeBg, align, group, ungroup, duplicate, toggleLock, placeImage, drawRulers, setRulers: v => { rulers = v; drawRulers(); } });
 })();
