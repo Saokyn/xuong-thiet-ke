@@ -150,10 +150,10 @@
   canvas.wrapperEl.addEventListener('mousedown', e => {
     if (!(e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown))) return;
     e.preventDefault(); e.stopPropagation();
-    panning = { x: e.clientX, y: e.clientY, btn: e.button, moved: 0 }; stageEl.classList.add('panning');
+    panning = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, btn: e.button, moved: 0, go: e.button !== 2 }; if (panning.go) stageEl.classList.add('panning');
   }, true);
-  window.addEventListener('mousemove', e => { if (!panning) return; const dx = e.clientX - panning.x, dy = e.clientY - panning.y; panning.moved += Math.abs(dx) + Math.abs(dy); panBy(dx, dy); panning.x = e.clientX; panning.y = e.clientY; });
-  window.addEventListener('mouseup', () => { if (panning) { panning = null; stageEl.classList.remove('panning'); } });
+  window.addEventListener('mousemove', e => { if (!panning) return; if (!panning.go) { if (Math.hypot(e.clientX - panning.sx, e.clientY - panning.sy) < 4) return; panning.go = true; stageEl.classList.add('panning'); } const dx = e.clientX - panning.x, dy = e.clientY - panning.y; panning.moved += Math.abs(dx) + Math.abs(dy); panBy(dx, dy); panning.x = e.clientX; panning.y = e.clientY; });
+  window.addEventListener('mouseup', e => { if (panning) { const p = panning; panning = null; stageEl.classList.remove('panning'); if (p.btn === 2 && !p.go && e.button === 2) stageEl.dispatchEvent(new CustomEvent('xtk:ctxmenu', { detail: e })); } });
   stageEl.addEventListener('contextmenu', e => { if (!e.target.closest('.zoombar')) e.preventDefault(); });
   canvas.wrapperEl.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
   // Zoom bar + shortcuts

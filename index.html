@@ -12,7 +12,7 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">🎨 Xưởng Thiết Kế</div>
+  <a class="brand" id="logoHome" href="./" title="Về trang chủ (Mẫu &amp; kích thước)">🎨 Xưởng Thiết Kế</a>
   <nav>
     <button data-view="picker" class="nav active">Mẫu &amp; kích thước</button>
     <button data-view="designer" class="nav">Thiết kế</button>
@@ -202,31 +202,19 @@ Trần Thị Bình,Kế toán</textarea>
       </div>
     </aside>
     <div class="stage-wrap">
-      <div class="toolbar">
+      <div class="toolbar slim">
         <button id="toggleLeft" class="ptoggle" title="Thu gọn / mở bảng bên trái (Ctrl+[)" aria-label="Thu gọn bảng trái">◧</button>
-        <button id="undo" title="Hoàn tác (Ctrl+Z)">↶</button>
-        <button id="redo" title="Làm lại (Ctrl+Y)">↷</button>
-        <button id="del" title="Xóa (Delete)">🗑</button>
-        <span class="sep"></span>
-        <button id="front" title="Lên trên cùng">⤒</button>
-        <button id="forward" title="Lên 1 lớp">↑</button>
-        <button id="backward" title="Xuống 1 lớp">↓</button>
-        <button id="back" title="Xuống dưới cùng">⤓</button>
-        <span class="sep"></span>
-        <button id="dup" title="Nhân bản (Ctrl+D)">⧉</button>
-        <button id="group" title="Nhóm (Ctrl+G)">▣ Nhóm</button>
-        <button id="ungroup" title="Bỏ nhóm (Ctrl+Shift+G)">◫</button>
-        <button id="lock" title="Khóa/mở khóa (Ctrl+L)">🔒</button>
-        <select id="align" title="Căn chỉnh"><option value="">Căn chỉnh…</option><option value="left">Căn trái</option><option value="hcenter">Căn giữa ngang</option><option value="right">Căn phải</option><option value="top">Căn trên</option><option value="vcenter">Căn giữa dọc</option><option value="bottom">Căn dưới</option><option value="dh">Phân bố ngang</option><option value="dv">Phân bố dọc</option></select>
-        <button id="rulerToggle" title="Thước đo">📏</button>
+        <button id="undo" title="Hoàn tác (Ctrl+Z)">↶</button><button id="redo" title="Làm lại (Ctrl+Y)">↷</button>
         <span class="sep"></span>
         <input id="designName" placeholder="Tên thiết kế" value="Thiết kế mới">
-        <button id="save" class="primary">💾 Lưu</button>
-        <input type="hidden" id="exportScale" value="1">
-        <button id="exportBtn" class="primary" title="Tùy chọn xuất: kích thước, DPI, chất lượng">⬇ Xuất…</button>
-        <button id="resizeBtn" title="Đổi kích thước thông minh">⇲ Đổi cỡ</button>
         <select id="projMenu"><option value="">Dự án…</option><option value="exp">Xuất dự án .json</option><option value="imp">Nhập dự án .json</option><option value="backup">Sao lưu toàn bộ (.zip)</option><option value="restore">Khôi phục từ .zip</option></select>
         <input id="projFile" type="file" accept=".json,application/json" hidden><input id="restoreFile" type="file" accept=".zip" hidden>
+        <span class="grow"></span>
+        <button id="resizeBtn" title="Đổi kích thước thông minh">⇲ Đổi cỡ</button>
+        <input type="hidden" id="exportScale" value="1">
+        <button id="save" class="primary">💾 Lưu</button>
+        <button id="exportBtn" class="primary" title="Tùy chọn xuất: kích thước, DPI, chất lượng">⬇ Xuất…</button>
+        <button id="focusBtn" title="Chế độ tập trung (F)" aria-label="Chế độ tập trung">⛶</button>
         <button id="toggleRight" class="ptoggle" title="Thu gọn / mở bảng thuộc tính (Ctrl+])" aria-label="Thu gọn bảng thuộc tính">◨</button>
       </div>
       <div id="sizeInfo" class="sizeinfo"></div>
@@ -234,8 +222,9 @@ Trần Thị Bình,Kế toán</textarea>
       <div id="stage" class="stage"><canvas id="rulerTop" class="ruler top" hidden></canvas><canvas id="rulerLeft" class="ruler left" hidden></canvas><canvas id="c"></canvas>
         <div id="hbar" class="sbar h" hidden><div class="thumb"></div></div><div id="vbar" class="sbar v" hidden><div class="thumb"></div></div>
         <div id="colorPreviewBar" class="cpbar" hidden role="status"><span>🎨 Đang xem trước màu</span><button id="cpApply" class="primary">Áp dụng</button><button id="cpCancel">Hủy</button></div>
-        <div class="zoombar" role="toolbar" aria-label="Thu phóng"><button id="zoomOut" title="Thu nhỏ (Ctrl+-)" aria-label="Thu nhỏ">−</button><span id="zoomPct" title="Mức thu phóng (lăn chuột để phóng to/thu nhỏ, giữ chuột phải/nút giữa hoặc Space + kéo để di chuyển, Shift + lăn để cuộn ngang)">100%</span><button id="zoomIn" title="Phóng to (Ctrl++)" aria-label="Phóng to">+</button><button id="zoomFit" title="Vừa khung (Ctrl+0)">Vừa khung</button><button id="zoom100" title="Kích thước thật (Ctrl+1)">100%</button></div></div>
-      <div class="pagesbar"><div id="pages" class="pages"></div><button id="pageAdd" title="Thêm trang">＋ Trang</button><button id="pageDup" title="Nhân bản trang hiện tại">Nhân bản trang</button><button id="pageDel" title="Xóa trang">🗑</button></div>
+        <div id="floatBar" class="floatbar" role="toolbar" aria-label="Công cụ đối tượng" hidden><span id="fbText" class="fbgrp" hidden><select id="fbFont" title="Phông chữ"></select><input id="fbSize" type="number" min="4" max="2000" title="Cỡ chữ"><input id="fbColor" type="color" data-nopv title="Màu chữ"></span><span id="fbImg" class="fbgrp" hidden><button id="fbCrop" title="Cắt ảnh">✂ Cắt</button><button id="fbRmbg" title="Xóa nền (AI)">🪄 Xóa nền</button><button id="fbFilter" title="Bộ lọc &amp; chỉnh ảnh">🎛 Lọc</button></span><button id="dup" title="Nhân bản (Ctrl+D)">⧉</button><button id="del" title="Xóa (Delete)">🗑</button><button id="front" title="Lên trên cùng">⤒</button><button id="forward" title="Lên 1 lớp">↑</button><button id="backward" title="Xuống 1 lớp">↓</button><button id="back" title="Xuống dưới cùng">⤓</button><button id="group" title="Nhóm (Ctrl+G)">▣ Nhóm</button><button id="ungroup" title="Bỏ nhóm (Ctrl+Shift+G)">◫</button><button id="lock" title="Khóa/mở khóa (Ctrl+L)">🔒</button><select id="align" title="Căn chỉnh"><option value="">Căn chỉnh…</option><option value="left">Căn trái</option><option value="hcenter">Căn giữa ngang</option><option value="right">Căn phải</option><option value="top">Căn trên</option><option value="vcenter">Căn giữa dọc</option><option value="bottom">Căn dưới</option><option value="dh">Phân bố ngang</option><option value="dv">Phân bố dọc</option></select></div><div id="ctxMenu" class="ctxmenu" role="menu" hidden><button data-c="dup">⧉ Nhân bản <kbd>Ctrl+D</kbd></button><button data-c="lock">🔒 Khóa / mở khóa</button><button data-c="forward">↑ Lên 1 lớp</button><button data-c="backward">↓ Xuống 1 lớp</button><button data-c="front">⤒ Lên trên cùng</button><button data-c="back">⤓ Xuống dưới cùng</button><button data-c="del" class="danger">🗑 Xóa <kbd>Del</kbd></button></div><button id="focusExit" class="focusexit" hidden>✕ Thoát chế độ tập trung (F)</button>
+        <div class="zoombar" role="toolbar" aria-label="Thu phóng"><button id="zoomOut" title="Thu nhỏ (Ctrl+-)" aria-label="Thu nhỏ">−</button><span id="zoomPct" title="Mức thu phóng (lăn chuột để phóng to/thu nhỏ, giữ chuột phải/nút giữa hoặc Space + kéo để di chuyển, Shift + lăn để cuộn ngang)">100%</span><button id="zoomIn" title="Phóng to (Ctrl++)" aria-label="Phóng to">+</button><button id="zoomFit" title="Vừa khung (Ctrl+0)">Vừa khung</button><button id="zoom100" title="Kích thước thật (Ctrl+1)">100%</button><button id="rulerToggle" title="Thước đo">📏</button></div></div>
+      <div class="pagesbar" id="pagesBar"><button id="pagesToggle" class="ptoggle" title="Thu gọn / mở thanh trang" aria-expanded="true">▾</button><span id="pagesLabel" class="small muted">Trang 1/1</span><button id="pageAdd" title="Thêm trang">＋ Trang</button><button id="pageDup" title="Nhân bản trang hiện tại">Nhân bản trang</button><button id="pageDel" title="Xóa trang">🗑</button><div id="pages" class="pages"></div></div>
       <div id="progress" class="progress" hidden><div></div><span></span></div>
     </div>
     <aside class="props">
@@ -335,5 +324,6 @@ Trần Thị Bình,Kế toán</textarea>
 <script src="js/phase3.js"></script>
 <script src="js/phase4.js"></script>
 <script src="js/phase5.js"></script>
+<script src="js/phase6.js"></script>
 </body>
 </html>

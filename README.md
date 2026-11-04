@@ -67,3 +67,18 @@ Static PWA. Serve: `python3 -m http.server 8765` then open http://localhost:8765
 - **Hiệu ứng nhũ giả**: vàng, bạc, vàng hồng (dải ánh kim + bóng nhẹ) cho chữ/hình; “Bỏ nhũ” để trả về màu thường. Đây là mô phỏng in màu, không phải ép kim thật.
 - **Chế độ in** (bảng Công cụ): hiện vùng tràn lề 2/3/5 mm, vùng an toàn 3 mm, dấu cắt và đường cắt bo góc trên màn hình (không xuất ra file). PDF in dùng đúng số mm tràn lề, dấu cắt tùy chọn, và vẽ đường bế bo góc (nét đứt màu magenta) khi chọn bo góc.
 - Ảnh chụp: `screenshots/25-…` đến `33-…`.
+
+## Giai đoạn 6 — Giao diện gọn (kiểu Canva)
+
+- **Thanh tiêu đề ~40px**: chữ và nút nhỏ hơn. Bấm logo «Xưởng Thiết Kế» để tải lại và về tab «Mẫu & kích thước». Nếu còn thay đổi chưa lưu, ứng dụng sẽ hỏi lại trước.
+- **Thanh công cụ một hàng mảnh, luôn hiện**: hoàn tác/làm lại, tên thiết kế, menu Dự án, Đổi cỡ, Lưu, Xuất, ⛶ Tập trung và nút thu gọn/mở bảng ◧/◨. Nút 📏 thước đo nằm ở thanh thu phóng.
+- **Thanh công cụ nổi theo ngữ cảnh**: chỉ hiện ngay phía trên đối tượng khi có đối tượng được chọn. Thanh luôn nằm trong vùng làm việc và đi theo khi thu phóng, kéo khung nhìn hay di chuyển đối tượng.
+  - Gồm: nhân bản, xóa, thứ tự lớp, nhóm/bỏ nhóm, khóa, căn chỉnh.
+  - Với chữ: thêm phông, cỡ chữ, màu chữ.
+  - Với ảnh: thêm ✂ Cắt, 🪄 Xóa nền, 🎛 Lọc (mở đúng mục trong bảng thuộc tính).
+- **Menu chuột phải**: bấm chuột phải lên đối tượng mà không kéo (dưới 4px) sẽ mở menu: nhân bản, khóa, lên/xuống lớp, xóa. Giữ chuột phải rồi kéo vẫn dùng để di chuyển khung nhìn.
+- **Thanh trang gọn (~44px)**:
+  - Ảnh thu nhỏ nhỏ hơn, có nút ▸/▾ để thu gọn hoặc mở.
+  - Tự thu gọn khi chỉ có 1 trang; khi thu gọn vẫn còn «+ Trang» và «Nhân bản trang».
+  - Lựa chọn thu gọn/mở được nhớ trong localStorage.
+- **Chế độ tập trung**: phím **F** (không tác dụng khi đang gõ trong ô nhập) hoặc nút ⛶ sẽ ẩn mọi bảng và thanh để vùng vẽ lớn nhất. Thoát bằng F, Esc hoặc nút «Thoát».
