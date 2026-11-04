@@ -1,8 +1,9 @@
 (() => {
   const $ = s => document.querySelector(s);
-  const FONTS = ['Be Vietnam Pro', 'Montserrat', 'Lora', 'Roboto'];
+  const FONTS = ['Be Vietnam Pro', 'Montserrat', 'Lora', 'Roboto', 'Playfair Display', 'Dancing Script', 'Lobster', 'Pacifico', 'Bungee', 'Nunito', 'Oswald', 'Merriweather', 'Quicksand', 'Comfortaa', 'Patrick Hand', 'Baloo 2', 'Charm'];
+  const P = () => window.XTK_FX.PROPS;
   const PALETTE = ['#111827', '#ffffff', '#4f46e5', '#7c3aed', '#ec4899', '#ef4444', '#f97316', '#f59e0b', '#10b981', '#06b6d4', '#0ea5e9', '#1e3a8a', '#a16207', '#fef3c7', '#d1d5db'];
-  let state = { tpl: null, id: null };
+  let state = { tpl: null, id: null, pages: [null], cur: 0 };
   let history = [], hIndex = -1, restoring = false;
 
   const toast = (msg, ms = 3500) => { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, ms); };
@@ -55,10 +56,10 @@
   window.addEventListener('resize', fit);
 
   function openTemplate(t, json) {
-    state.tpl = { ...t }; state.id = json ? state.id : null;
+    state.tpl = { ...t }; state.id = json ? state.id : null; if (!openTemplate._keepPages) { state.pages = [null]; state.cur = 0; }
     canvas.clear(); canvas.backgroundColor = '#ffffff';
     history = []; hIndex = -1;
-    const after = () => { fit(); snapshot(); refreshLayers(); checkDpi(); };
+    const after = () => { fit(); snapshot(); refreshLayers(); checkDpi(); window.XTK_HOOKS?.opened?.(); };
     if (json) { restoring = true; canvas.loadFromJSON(json, () => { restoring = false; canvas.renderAll(); after(); }); }
     else { $('#designName').value = t.name; after(); }
     setTimeout(fit, 0);
@@ -70,10 +71,6 @@
 
   $('#addHeading').onclick = () => center(new fabric.Textbox('Tiêu đề của bạn', { fontFamily: 'Be Vietnam Pro', fontWeight: 700, fontSize: U() * 0.1, fill: '#111827', width: state.tpl.w * 0.8, textAlign: 'center', name: 'Tiêu đề' }));
   $('#addText').onclick = () => center(new fabric.Textbox('Nhập nội dung ở đây — tiếng Việt có dấu đầy đủ.', { fontFamily: 'Roboto', fontSize: U() * 0.045, fill: '#374151', width: state.tpl.w * 0.6, textAlign: 'center', name: 'Đoạn văn' }));
-  $('#addRect').onclick = () => center(new fabric.Rect({ width: U() * 0.4, height: U() * 0.25, rx: U() * 0.02, ry: U() * 0.02, fill: color(), name: 'Hình chữ nhật' }));
-  $('#addCircle').onclick = () => center(new fabric.Circle({ radius: U() * 0.15, fill: color(), name: 'Hình tròn' }));
-  $('#addTriangle').onclick = () => center(new fabric.Triangle({ width: U() * 0.3, height: U() * 0.26, fill: color(), name: 'Tam giác' }));
-  $('#addLine').onclick = () => center(new fabric.Line([0, 0, U() * 0.5, 0], { stroke: color(), strokeWidth: Math.max(2, U() * 0.01), name: 'Đường kẻ' }));
 
   $('#uploadImg').onchange = e => {
     const f = e.target.files[0]; if (!f) return; e.target.value = '';
@@ -103,16 +100,16 @@
     $('#colorPick').value = c;
     const o = canvas.getActiveObject(); if (!o) return;
     const targets = o.type === 'activeSelection' ? o.getObjects() : [o];
-    targets.forEach(t => t.type === 'line' ? t.set('stroke', c) : t.set('fill', c));
+    targets.forEach(t => t.type === 'line' || (t.type === 'path' && !t.fill) ? t.set('stroke', c) : t.type === 'group' ? t.getObjects().forEach(x => x.set(x.type === 'line' ? 'stroke' : 'fill', c)) : t.set('fill', c));
     canvas.requestRenderAll(); snapshot(); renderProps();
   }
   $('#colorPick').oninput = e => applyColor(e.target.value);
-  $('#applyBg').onclick = () => { canvas.backgroundColor = color(); canvas.requestRenderAll(); snapshot(); };
+  $('#applyBg').onclick = () => window.XTK_HOOKS.setBg(color());
 
   // ---------- History
   function snapshot() {
     if (restoring || !state.tpl) return;
-    const j = JSON.stringify(canvas.toJSON(['name']));
+    const j = JSON.stringify(canvas.toJSON(P()));
     if (history[hIndex] === j) return;
     history = history.slice(0, hIndex + 1); history.push(j);
     if (history.length > 60) history.shift(); hIndex = history.length - 1;
@@ -152,8 +149,8 @@
   function label(o) { return o.name && !/^(Tiêu đề|Đoạn văn)$/.test(o.name) ? o.name : (o.text ? '“' + o.text.slice(0, 22) + '”' : o.type); }
   function refreshLayers() {
     const ul = $('#layers'); ul.innerHTML = ''; const act = canvas.getActiveObjects();
-    canvas.getObjects().slice().reverse().forEach(o => {
-      const li = document.createElement('li'); li.textContent = label(o); if (act.includes(o)) li.className = 'sel';
+    canvas.getObjects().filter(o => o.name !== '__bg').reverse().forEach(o => {
+      const li = document.createElement('li'); li.textContent = (o.xtk?.locked ? '🔒 ' : '') + label(o); if (act.includes(o)) li.className = 'sel';
       li.onclick = () => { canvas.setActiveObject(o); canvas.requestRenderAll(); };
       ul.appendChild(li);
     });
@@ -162,8 +159,9 @@
   // ---------- Properties panel
   function renderProps() {
     const o = canvas.getActiveObject(), b = $('#propsBody');
-    if (!o || o.type === 'activeSelection') { b.innerHTML = '<p class="muted">Chọn một đối tượng để chỉnh sửa.</p>'; return; }
-    const isText = /text/.test(o.type);
+    if (!o) { b.innerHTML = '<p class="muted">Chọn một đối tượng để chỉnh sửa.</p>'; return; }
+    if (o.type === 'activeSelection') { b.innerHTML = `<p class="muted">Đã chọn ${o.size()} đối tượng. Dùng “Căn chỉnh”, “Nhóm” trên thanh công cụ.</p>`; return; }
+    const isText = /text/.test(o.type) && !o.xtk?.curved;
     let h = '';
     if (isText) {
       h += `<label>Font<select data-p="fontFamily">${FONTS.map(f => `<option ${f === o.fontFamily ? 'selected' : ''} style="font-family:'${f}'">${f}</option>`).join('')}</select></label>
@@ -172,7 +170,7 @@
       <label>Căn lề<select data-p="textAlign">${['left', 'center', 'right'].map(a => `<option ${a === o.textAlign ? 'selected' : ''}>${a}</option>`).join('')}</select></label>`;
     }
     const fillKey = o.type === 'line' ? 'stroke' : 'fill';
-    if (o.type !== 'image') h += `<label>Màu<input type="color" data-p="${fillKey}" value="${typeof o[fillKey] === 'string' && o[fillKey].startsWith('#') ? o[fillKey].slice(0, 7) : '#000000'}"></label>`;
+    if (o.type !== 'image' && !(o.type === 'group' && !o.xtk?.curved)) h += `<label>Màu<input type="color" data-p="${fillKey}" value="${typeof o[fillKey] === 'string' && o[fillKey].startsWith('#') ? o[fillKey].slice(0, 7) : '#000000'}"></label>`;
     h += `<label>Độ mờ<input type="range" min="0" max="1" step="0.05" data-p="opacity" value="${o.opacity}"></label>
       <label>Xoay (°)<input type="number" data-p="angle" value="${Math.round(o.angle)}"></label>`;
     if (o.type === 'image' && state.tpl.print) h += `<p class="small">Độ phân giải hiệu dụng: <b>${Math.round(effDpi(o))} dpi</b></p>`;
@@ -184,6 +182,7 @@
       o.setCoords(); canvas.requestRenderAll();
     });
     b.querySelectorAll('[data-p]').forEach(inp => inp.onchange = () => { snapshot(); refreshLayers(); });
+    window.XTK_HOOKS?.props?.(o, b);
   }
 
   // ---------- Sample design
@@ -199,7 +198,6 @@
     add(new fabric.Textbox('Ưu đãi · Đặt bàn ngay', { left: w * 0.06, top: h * 0.82, width: w * 0.5, fontFamily: 'Be Vietnam Pro', fontWeight: 700, fontSize: u * 0.045, fill: '#a5f3fc', name: 'Lời kêu gọi' }));
     canvas.requestRenderAll(); snapshot(); refreshLayers();
   }
-  $('#sampleDesign').onclick = sampleDesign;
 
   // ---------- Save / load
   function thumb() {
@@ -210,10 +208,15 @@
   }
   $('#save').onclick = async () => {
     canvas.discardActiveObject();
-    const d = { id: state.id || ('d' + Date.now().toString(36)), name: $('#designName').value || 'Không tên', tpl: state.tpl, json: canvas.toJSON(['name']), thumb: thumb(), updated: Date.now() };
+    const d = { id: state.id || ('d' + Date.now().toString(36)), name: $('#designName').value || 'Không tên', tpl: state.tpl, json: (state.pages[state.cur] = canvas.toJSON(P()), state.pages[0]), pages: state.pages.length > 1 ? state.pages : undefined, thumb: thumb(), updated: Date.now() };
     try { await DB.put(d); state.id = d.id; toast('Đã lưu “' + d.name + '” trên thiết bị'); }
     catch (e) { toast('Không lưu được: ' + e.message); }
   };
+  function openDoc(d) {
+    state.id = d.id; $('#designName').value = d.name; show('designer');
+    openTemplate(d.tpl, d.pages ? d.pages[0] : d.json); state.id = d.id;
+    state.pages = d.pages ? d.pages.slice() : [d.json]; state.cur = 0; window.XTK_HOOKS?.pages?.();
+  }
   async function renderSaved() {
     const g = $('#savedGrid'); const all = await DB.all();
     g.innerHTML = all.length ? '' : '<p class="muted">Chưa có thiết kế nào được lưu.</p>';
@@ -222,7 +225,7 @@
       el.innerHTML = `<img alt=""><b></b><br><small>${d.tpl.w}×${d.tpl.h} · ${new Date(d.updated).toLocaleString('vi-VN')}</small><div class="row"><button class="primary">Mở</button><button>Xóa</button></div>`;
       el.querySelector('img').src = d.thumb; el.querySelector('b').textContent = d.name;
       const [open, rm] = el.querySelectorAll('button');
-      open.onclick = () => { state.id = d.id; $('#designName').value = d.name; show('designer'); openTemplate(d.tpl, d.json); state.id = d.id; };
+      open.onclick = () => { openDoc(d); };
       rm.onclick = async () => { if (confirm('Xóa thiết kế này?')) { await DB.del(d.id); renderSaved(); } };
       g.appendChild(el);
     });
@@ -289,5 +292,5 @@
 
   renderTemplates();
   // Hooks for automated tests
-  window.XTK = { openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
+  window.XTK = { openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
 })();

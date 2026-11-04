@@ -56,7 +56,7 @@ const Exporter = (() => {
   async function exportDesign(canvas, W, H, { format = 'png', scale = 1, quality = 0.92, onProgress = () => {} } = {}) {
     const ow = Math.round(W * scale), oh = Math.round(H * scale);
     const big = ow > TILE_THRESHOLD || oh > TILE_THRESHOLD || ow * oh > AREA_THRESHOLD;
-    canvas.discardActiveObject(); canvas.requestRenderAll();
+    canvas.discardActiveObject?.(); canvas.requestRenderAll();
     if (!big) {
       onProgress(0.2, 'Đang dựng ảnh…');
       const el = renderRegion(canvas, 0, 0, W, H, scale);
@@ -111,6 +111,6 @@ const Exporter = (() => {
     parts.push(...chunk('IEND', new Uint8Array(0)));
     return { blob: new Blob(parts, { type: 'image/png' }), width: ow, height: oh, tiled: true, strips };
   }
-  return { exportDesign, TILE_THRESHOLD };
+  return { exportDesign, renderRegion, TILE_THRESHOLD };
 })();
 window.Exporter = Exporter;

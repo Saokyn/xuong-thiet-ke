@@ -14,18 +14,26 @@
 <header class="topbar">
   <div class="brand">🎨 Xưởng Thiết Kế</div>
   <nav>
-    <button data-view="picker" class="nav active">Mẫu kích thước</button>
+    <button data-view="picker" class="nav active">Mẫu &amp; kích thước</button>
     <button data-view="designer" class="nav">Thiết kế</button>
     <button data-view="saved" class="nav">Thiết kế đã lưu</button>
     <button id="toggleAI" class="nav ai">✨ Ý tưởng AI</button>
   </nav>
+  <a class="credits-link" href="credits.html" target="_blank">Giấy phép &amp; ghi công</a>
   <span id="netStatus" class="net"></span>
 </header>
 
 <main>
   <!-- Template picker -->
   <section id="view-picker" class="view active">
-    <h1>Chọn kích thước để bắt đầu</h1>
+    <h1>Thư viện mẫu thiết kế</h1>
+    <div class="libbar">
+      <input id="libSearch" type="search" placeholder="Tìm mẫu: cưới, sale, menu, cv…">
+      <select id="libSize"><option value="">Mọi kích thước</option></select>
+      <div id="libCats" class="chips"></div>
+    </div>
+    <div id="libGrid" class="grid lib"></div>
+    <h1 style="margin-top:28px">Hoặc chọn kích thước trống</h1>
     <div id="templateGrid" class="grid"></div>
     <div class="custom card">
       <h3>Kích thước tùy chỉnh</h3>
@@ -38,41 +46,134 @@
 
   <!-- Designer -->
   <section id="view-designer" class="view">
-    <aside class="tools">
-      <h4>Thêm</h4>
-      <button id="addHeading">Tiêu đề</button>
-      <button id="addText">Đoạn văn</button>
-      <button id="addRect">Hình chữ nhật</button>
-      <button id="addCircle">Hình tròn</button>
-      <button id="addTriangle">Tam giác</button>
-      <button id="addLine">Đường kẻ</button>
-      <label class="btn">Tải ảnh lên<input id="uploadImg" type="file" accept="image/*" hidden></label>
-      <button id="sampleDesign">Mẫu nhanh</button>
-      <h4>Bảng màu</h4>
-      <div id="palette" class="palette"></div>
-      <input id="colorPick" type="color" value="#4f46e5" title="Chọn màu">
-      <button id="applyBg">Đặt làm nền</button>
+    <nav class="rail">
+      <button data-tab="tpl" title="Mẫu">🗂<span>Mẫu</span></button>
+      <button data-tab="el" class="on" title="Thành phần">✳️<span>Thành phần</span></button>
+      <button data-tab="text" title="Chữ">🔤<span>Chữ</span></button>
+      <button data-tab="img" title="Ảnh">🖼<span>Ảnh</span></button>
+      <button data-tab="bg" title="Nền">🎨<span>Nền</span></button>
+      <button data-tab="brand" title="Thương hiệu">🏷<span>Thương hiệu</span></button>
+      <button data-tab="tools" title="Công cụ">🧰<span>Công cụ</span></button>
+    </nav>
+    <aside class="tools panel">
+      <div class="tab" data-tab="tpl">
+        <h4>Mẫu thiết kế</h4>
+        <input id="tplSearch2" type="search" placeholder="Tìm mẫu…">
+        <label class="small"><input type="checkbox" id="tplSameSize" checked> Chỉ mẫu cùng kích thước</label>
+        <div id="tplList2" class="mini-grid"></div>
+      </div>
+      <div class="tab on" data-tab="el">
+        <input id="elSearch" type="search" placeholder="Tìm: tim, sao, tết, cưới, mũi tên…">
+        <div id="elBody"></div>
+      </div>
+      <div class="tab" data-tab="text">
+        <h4>Thêm chữ</h4>
+        <button id="addHeading">Tiêu đề</button>
+        <button id="addText">Đoạn văn</button>
+        <button id="addCurved">Chữ cong</button>
+        <h4>Kiểu chữ có sẵn</h4>
+        <div id="textPresets" class="presets"></div>
+      </div>
+      <div class="tab" data-tab="img">
+        <label class="btn primary-ish">⬆ Tải ảnh lên<input id="uploadImg" type="file" accept="image/*" hidden></label>
+        <p class="small muted">Chọn một khung ảnh rồi tải lên, hoặc kéo-thả ảnh vào khung.</p>
+        <h4>Khung ảnh</h4>
+        <div id="frameList" class="iconlist"></div>
+        <h4>Lưới ghép ảnh (collage)</h4>
+        <label class="small">Khoảng cách <input id="colGap" type="range" min="0" max="60" value="16"></label>
+        <label class="small">Bo góc <input id="colRad" type="range" min="0" max="80" value="0"></label>
+        <div id="collageList" class="iconlist"></div>
+      </div>
+      <div class="tab" data-tab="bg">
+        <h4>Màu nền</h4>
+        <div id="palette" class="palette"></div>
+        <input id="colorPick" type="color" value="#4f46e5" title="Chọn màu">
+        <div class="row"><button id="applyBg">Đặt làm nền</button><button id="eyedrop" title="Lấy màu từ thiết kế">💧 Hút màu</button></div>
+        <h4>Nền chuyển sắc</h4>
+        <div id="gradList" class="swatch-grid"></div>
+        <div class="row small"><input type="color" id="g1" value="#4f46e5"><input type="color" id="g2" value="#ec4899"><select id="gType"><option value="0">Ngang</option><option value="90">Dọc</option><option value="45">Chéo</option><option value="radial">Tỏa tròn</option></select><button id="gApply">Áp dụng</button></div>
+        <h4>Nền hoa văn</h4>
+        <div id="patList" class="swatch-grid"></div>
+        <h4>Bảng màu từ ảnh</h4>
+        <label class="btn">Chọn ảnh để lấy màu<input id="palImg" type="file" accept="image/*" hidden></label>
+        <button id="palFromSel">Lấy màu từ ảnh đang chọn</button>
+        <div id="imgPalette" class="palette"></div>
+      </div>
+      <div class="tab" data-tab="brand">
+        <h4>Bộ nhận diện (Brand Kit)</h4>
+        <p class="small muted">Lưu trên thiết bị (IndexedDB).</p>
+        <h5>Màu thương hiệu</h5>
+        <div id="brandColors" class="palette"></div>
+        <div class="row"><input type="color" id="brandColorPick" value="#e11d48"><button id="brandAddColor">+ Thêm màu</button></div>
+        <h5>Font</h5>
+        <label class="small">Tiêu đề <select id="brandFontH"></select></label>
+        <label class="small">Nội dung <select id="brandFontB"></select></label>
+        <h5>Logo</h5>
+        <div id="brandLogos" class="logo-grid"></div>
+        <label class="btn">+ Tải logo<input id="brandLogoUp" type="file" accept="image/*" hidden></label>
+        <button id="brandApply" class="primary">✨ Áp dụng thương hiệu cho thiết kế</button>
+      </div>
+      <div class="tab" data-tab="tools">
+        <h4>Vẽ tự do</h4>
+        <div class="row"><button id="drawPen">✏️ Bút</button><button id="drawHi">🖍 Bút dạ quang</button><button id="drawOff">Dừng</button></div>
+        <label class="small">Độ dày <input id="drawW" type="range" min="1" max="80" value="8"></label>
+        <h4>Mã QR</h4>
+        <input id="qrText" placeholder="https://… hoặc nội dung" value="https://saokyn.github.io/xuong-thiet-ke/">
+        <button id="qrAdd">Thêm mã QR</button>
+        <h4>Biểu đồ</h4>
+        <textarea id="chartData" rows="4">Thứ 2: 12
+Thứ 3: 19
+Thứ 4: 8
+Thứ 5: 15</textarea>
+        <div class="row"><select id="chartType"><option value="bar">Cột</option><option value="line">Đường</option><option value="pie">Tròn</option></select><button id="chartAdd">Thêm biểu đồ</button></div>
+        <h4>Bảng</h4>
+        <textarea id="tableData" rows="3">Gói,Giá,Thời hạn
+Cơ bản,99K,1 tháng
+Nâng cao,249K,3 tháng</textarea>
+        <button id="tableAdd">Thêm bảng</button>
+        <h4>Tạo hàng loạt từ CSV</h4>
+        <p class="small muted">Đặt chữ dạng {{ten}} trong thiết kế, cột CSV cùng tên sẽ thay thế.</p>
+        <textarea id="bulkCsv" rows="4">ten,chuc_vu
+Nguyễn Văn An,Giám đốc
+Trần Thị Bình,Kế toán</textarea>
+        <div class="row"><label class="btn">Mở CSV<input id="bulkFile" type="file" accept=".csv,text/csv" hidden></label><button id="bulkGo" class="primary">Tạo & tải ZIP</button></div>
+        <h4>Tách nền ảnh (AI trên thiết bị)</h4>
+        <button id="bgRemove">✂️ Xóa nền ảnh đang chọn</button>
+        <p class="small muted">Lần đầu tải mô hình (~40 MB) rồi lưu bộ nhớ đệm để dùng ngoại tuyến.</p>
+      </div>
     </aside>
     <div class="stage-wrap">
       <div class="toolbar">
-        <button id="undo" title="Hoàn tác (Ctrl+Z)">↶ Hoàn tác</button>
-        <button id="redo" title="Làm lại (Ctrl+Y)">↷ Làm lại</button>
-        <button id="del" title="Xóa (Delete)">🗑 Xóa</button>
+        <button id="undo" title="Hoàn tác (Ctrl+Z)">↶</button>
+        <button id="redo" title="Làm lại (Ctrl+Y)">↷</button>
+        <button id="del" title="Xóa (Delete)">🗑</button>
         <span class="sep"></span>
-        <button id="front">Lên trên cùng</button>
-        <button id="forward">Lên 1 lớp</button>
-        <button id="backward">Xuống 1 lớp</button>
-        <button id="back">Xuống dưới cùng</button>
+        <button id="front" title="Lên trên cùng">⤒</button>
+        <button id="forward" title="Lên 1 lớp">↑</button>
+        <button id="backward" title="Xuống 1 lớp">↓</button>
+        <button id="back" title="Xuống dưới cùng">⤓</button>
+        <span class="sep"></span>
+        <button id="dup" title="Nhân bản (Ctrl+D)">⧉</button>
+        <button id="group" title="Nhóm (Ctrl+G)">▣ Nhóm</button>
+        <button id="ungroup" title="Bỏ nhóm (Ctrl+Shift+G)">◫</button>
+        <button id="lock" title="Khóa/mở khóa (Ctrl+L)">🔒</button>
+        <select id="align" title="Căn chỉnh"><option value="">Căn chỉnh…</option><option value="left">Căn trái</option><option value="hcenter">Căn giữa ngang</option><option value="right">Căn phải</option><option value="top">Căn trên</option><option value="vcenter">Căn giữa dọc</option><option value="bottom">Căn dưới</option><option value="dh">Phân bố ngang</option><option value="dv">Phân bố dọc</option></select>
+        <button id="rulerToggle" title="Thước đo">📏</button>
         <span class="sep"></span>
         <input id="designName" placeholder="Tên thiết kế" value="Thiết kế mới">
         <button id="save" class="primary">💾 Lưu</button>
-        <select id="exportFmt"><option value="png">PNG</option><option value="jpg">JPG</option></select>
+        <select id="exportFmt"><option value="png">PNG</option><option value="jpg">JPG</option><option value="png-t">PNG nền trong suốt</option><option value="pdf">PDF</option><option value="svg">SVG</option><option value="zip">ZIP (mọi trang, PNG)</option></select>
         <select id="exportScale"><option value="1">Kích thước đầy đủ</option><option value="0.25">Xem trước 25%</option></select>
-        <button id="exportBtn" class="primary">⬇ Xuất ảnh</button>
+        <label class="small" title="Thêm 3mm tràn lề và dấu cắt cho PDF in"><input type="checkbox" id="bleed"> Tràn lề</label>
+        <button id="exportBtn" class="primary">⬇ Xuất</button>
+        <button id="resizeBtn" title="Đổi kích thước thông minh">⇲ Đổi cỡ</button>
+        <select id="projMenu"><option value="">Dự án…</option><option value="exp">Xuất dự án .json</option><option value="imp">Nhập dự án .json</option><option value="backup">Sao lưu toàn bộ (.zip)</option><option value="restore">Khôi phục từ .zip</option></select>
+        <input id="projFile" type="file" accept=".json,application/json" hidden><input id="restoreFile" type="file" accept=".zip" hidden>
       </div>
       <div id="sizeInfo" class="sizeinfo"></div>
       <div id="dpiWarn" class="warn" hidden></div>
-      <div id="stage" class="stage"><canvas id="c"></canvas></div>
+      <div id="stage" class="stage"><canvas id="rulerTop" class="ruler top" hidden></canvas><canvas id="rulerLeft" class="ruler left" hidden></canvas><canvas id="c"></canvas></div>
+      <div class="pagesbar"><div id="pages" class="pages"></div><button id="pageAdd" title="Thêm trang">＋ Trang</button><button id="pageDup" title="Nhân bản trang">⧉</button><button id="pageDel" title="Xóa trang">🗑</button></div>
       <div id="progress" class="progress" hidden><div></div><span></span></div>
     </div>
     <aside class="props">
@@ -89,6 +190,14 @@
     <div id="savedGrid" class="grid"></div>
   </section>
 </main>
+
+<!-- Smart resize dialog -->
+<dialog id="resizeDlg">
+  <h3>Đổi kích thước thông minh</h3>
+  <p class="small muted">Tạo bản mới ở kích thước khác: co giãn và căn lại vị trí các thành phần.</p>
+  <div id="resizeList" class="resize-list"></div>
+  <div class="row"><button id="resizeOpen" class="primary">Mở bản đã đổi cỡ (kích thước đầu tiên)</button><button id="resizeZip">Tải ZIP mọi kích thước đã chọn</button><button id="resizeClose">Đóng</button></div>
+</dialog>
 
 <!-- AI panel -->
 <aside id="aiPanel" class="aipanel" hidden>
@@ -111,10 +220,19 @@
 
 <script src="vendor/fabric.min.js"></script>
 <script src="vendor/stream-jpeg.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="vendor/color-thief.global.js"></script>
 <script src="js/templates.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/elements.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/library.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/export.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/app.js"></script>
+<script src="js/features.js"></script>
 </body>
 </html>
