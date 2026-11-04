@@ -82,3 +82,25 @@ Static PWA. Serve: `python3 -m http.server 8765` then open http://localhost:8765
   - Tự thu gọn khi chỉ có 1 trang; khi thu gọn vẫn còn «+ Trang» và «Nhân bản trang».
   - Lựa chọn thu gọn/mở được nhớ trong localStorage.
 - **Chế độ tập trung**: phím **F** (không tác dụng khi đang gõ trong ô nhập) hoặc nút ⛶ sẽ ẩn mọi bảng và thanh để vùng vẽ lớn nhất. Thoát bằng F, Esc hoặc nút «Thoát».
+
+## Giai đoạn 7 — Cập nhật phiên bản & đồng bộ đám mây (tùy chọn)
+
+### Cập nhật phiên bản (service worker)
+- Trang HTML và mã ứng dụng (js/, css/, templates…) dùng **network-first**: khi có mạng, mỗi lần tải lại luôn lấy bản mới nhất, và chỉ dùng bộ nhớ đệm khi ngoại tuyến. Chỉ `vendor/` và `fonts/` dùng cache-first.
+- `sw.js` đăng ký với `updateViaCache: 'none'` và được kiểm tra lại khi mở trang hoặc khi quay lại tab. Bản mới kích hoạt ngay nhờ `skipWaiting` + `clients.claim`, bộ nhớ đệm cũ bị xoá khi kích hoạt.
+- Khi có bản mới, góc dưới hiện thông báo **“Có bản mới – bấm để cập nhật”**. Bấm vào thì trang tải lại đúng một lần.
+- Sau khi sửa tài sản, nhớ chạy lại `node mksw.js` để tạo `sw.js` mới (tên cache đổi theo nội dung).
+
+### Đồng bộ đám mây với Supabase (tắt mặc định)
+1. Tạo một dự án trên https://supabase.com.
+2. Vào **SQL Editor** và chạy toàn bộ `supabase/schema.sql`. Tệp này tạo bảng `designs`, RLS chỉ cho chủ sở hữu, trigger `updated_at`, bucket riêng tư `user-images` và chính sách Storage giới hạn theo thư mục `{user_id}/`.
+3. Vào **Authentication → Providers** và bật **Email** (mật khẩu và magic link). Trong **URL Configuration**, thêm địa chỉ trang web của bạn (ví dụ `https://ten-ban.github.io/xuong-thiet-ke/`) vào Site URL / Redirect URLs.
+4. Mở `js/cloud-config.js` và điền `SUPABASE_URL` và `SUPABASE_ANON_KEY` (Project Settings → API). **Chỉ dùng anon key (public), tuyệt đối không dán service_role key.** Anon key được phép công khai vì mọi dữ liệu đều được RLS bảo vệ.
+5. Nếu để trống hai giá trị này, ứng dụng hoạt động hoàn toàn cục bộ và nút ☁ hiện “Chưa cấu hình”. Thư viện supabase-js chỉ được tải khi đã cấu hình.
+
+Cách hoạt động:
+- **Offline-first.** IndexedDB vẫn là nguồn chính. Mỗi lần lưu hoặc xoá, thay đổi được đưa vào hàng đợi và tự đồng bộ khi có mạng, sau khi đăng nhập, hoặc khi bấm “⟳ Đồng bộ”.
+- **Giải quyết xung đột:** bản có `updated_at` mới hơn sẽ thắng (last-write-wins). Xoá là xoá mềm (`deleted = true`).
+- **Những gì được đồng bộ:** tên, dữ liệu thiết kế (kể cả nhiều trang) và ảnh thu nhỏ. Ảnh tải lên được lưu vào Storage `user-images/{user_id}/img/…`, còn bản trên mây chỉ giữ tham chiếu.
+- **Khóa API AI (`xtk.ai.key`) không bao giờ được đồng bộ.** Các trường có tên giống key/secret/token/password cũng bị loại bỏ trước khi gửi lên.
+- **Trạng thái** hiển thị ở thanh trên: Đã lưu lên mây / Đang chờ (n) / Đang đồng bộ / Lỗi đồng bộ.

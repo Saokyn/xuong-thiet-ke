@@ -444,7 +444,22 @@
   // ---------- Online status + SW
   const net = () => $('#netStatus').textContent = navigator.onLine ? '● Trực tuyến' : '○ Ngoại tuyến (vẫn dùng được)';
   addEventListener('online', net); addEventListener('offline', net); net();
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Service worker with update prompt: check on load + when the tab becomes visible; reload exactly once after the user accepts.
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    const sw = navigator.serviceWorker; let hadCtl = !!sw.controller, want = false, reloading = false;
+    const upd = document.createElement('button'); upd.id = 'updToast'; upd.className = 'updtoast'; upd.hidden = true; upd.textContent = '🔄 Có bản mới – bấm để cập nhật'; document.body.appendChild(upd);
+    let regRef = null;
+    const offer = () => { if (hadCtl) upd.hidden = false; };
+    upd.onclick = () => { want = true; upd.disabled = true; upd.textContent = 'Đang cập nhật…'; const w = regRef && regRef.waiting; if (w) w.postMessage('SKIP_WAITING'); else if (!reloading) { reloading = true; location.reload(); } };
+    sw.addEventListener('controllerchange', () => { if (want && !reloading) { reloading = true; location.reload(); return; } offer(); });
+    sw.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      regRef = reg; if (reg.waiting) offer();
+      reg.addEventListener('updatefound', () => { const n = reg.installing; n && n.addEventListener('statechange', () => { if ((n.state === 'installed' || n.state === 'activated') && hadCtl) offer(); }); });
+      const check = () => reg.update().catch(() => {}); check();
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+      window.XTK_SW = { reg, check };
+    }).catch(() => {});
+  }
 
   // Ensure bundled fonts are ready before rendering text on canvas
   Promise.all(FONTS.flatMap(f => ['400', '700'].map(w => document.fonts.load(`${w} 20px "${f}"`, 'Tiếng Việt ắằẳẵặ')))).then(() => { fabric.util.clearFabricFontCache?.(); canvas.requestRenderAll(); });

@@ -21,6 +21,7 @@
   </nav>
   <a class="credits-link" href="credits.html" target="_blank">Giấy phép &amp; ghi công</a>
   <span id="netStatus" class="net"></span>
+  <span id="cloudStatus" class="cloudst off" role="status"></span><button id="cloudSync" class="nav" hidden title="Đồng bộ thiết kế với đám mây">⟳ Đồng bộ</button><button id="cloudAcct" class="nav" title="Tài khoản &amp; đồng bộ đám mây">☁ Tài khoản</button>
 </header>
 
 <main>
@@ -243,6 +244,7 @@ Trần Thị Bình,Kế toán</textarea>
 </main>
 
 <!-- Export dialog -->
+<dialog id="cloudDlg"><h3>☁ Tài khoản &amp; đồng bộ đám mây</h3><div id="cloudBody"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button id="cloudClose">Đóng</button></div></dialog>
 <dialog id="exportDlg">
   <h3>Xuất thiết kế</h3>
   <label class="dl-row">Định dạng <select id="exportFmt"><option value="png">PNG</option><option value="jpg">JPG</option><option value="png-t">PNG nền trong suốt</option><option value="pdf">PDF</option><option value="svg">SVG</option><option value="zip">ZIP (mọi trang, PNG)</option></select></label>
@@ -325,5 +327,7 @@ Trần Thị Bình,Kế toán</textarea>
 <script src="js/phase4.js"></script>
 <script src="js/phase5.js"></script>
 <script src="js/phase6.js"></script>
+<script src="js/cloud-config.js"></script>
+<script src="js/cloud.js"></script>
 </body>
 </html>

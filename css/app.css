@@ -203,3 +203,8 @@ body.focus .topbar,body.focus #view-designer .rail,body.focus #view-designer .to
 body.focus #view-designer.active{grid-template-columns:minmax(0,1fr)}body.focus #view-designer>.stage-wrap{grid-column:1}
 .focusexit{position:absolute;top:10px;right:10px;z-index:30;font-size:12px;padding:4px 10px;background:#1f1b4dcc;color:#fff;border:0;border-radius:8px}
 .focusexit[hidden]{display:none}
+.updtoast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:200;background:#1f1b4d;color:#fff;border:0;border-radius:999px;padding:8px 16px;font-size:13px;box-shadow:0 8px 24px #0004;cursor:pointer}
+.updtoast[hidden]{display:none}
+.cloudst{font-size:12px;white-space:nowrap;padding:2px 8px;border-radius:999px;background:#ffffff14}
+.cloudst.ok{color:#86efac}.cloudst.wait,.cloudst.busy{color:#fde68a}.cloudst.err{color:#fca5a5}.cloudst.off{color:#c7c5f0}
+#cloudBody label{display:block;margin:6px 0}
