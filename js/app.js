@@ -66,7 +66,14 @@
   }
 
   const U = () => Math.min(state.tpl.w, state.tpl.h); // unit for default sizes
-  const center = o => { canvas.add(o); o.center(); o.setCoords(); canvas.setActiveObject(o); canvas.requestRenderAll(); };
+  const center = o => { canvas.add(o); o.setPositionByOrigin(new fabric.Point(state.tpl.w / 2, state.tpl.h / 2), 'center', 'center'); o.setCoords(); canvas.setActiveObject(o); canvas.requestRenderAll(); };
+  // Scale for a newly inserted image: fit inside ~80% of the page, never upscale beyond native unless it is tiny (<25% of the page)
+  function fitScale(w, h) {
+    const W = state.tpl.w, H = state.tpl.h, fitS = Math.min(W * 0.8 / w, H * 0.8 / h);
+    let s = Math.min(1, fitS);
+    if (w * s < W * 0.25 && h * s < H * 0.25) s = Math.min(fitS, Math.min(W * 0.4 / w, H * 0.4 / h));
+    return s;
+  }
   const color = () => $('#colorPick').value;
 
   $('#addHeading').onclick = () => center(new fabric.Textbox('Tiêu đề của bạn', { fontFamily: 'Be Vietnam Pro', fontWeight: 700, fontSize: U() * 0.1, fill: '#111827', width: state.tpl.w * 0.8, textAlign: 'center', name: 'Tiêu đề' }));
@@ -76,7 +83,7 @@
     const f = e.target.files[0]; if (!f) return; e.target.value = '';
     const r = new FileReader();
     r.onload = () => fabric.Image.fromURL(r.result, img => {
-      const s = Math.min(1, state.tpl.w * 0.8 / img.width, state.tpl.h * 0.8 / img.height);
+      const s = fitScale(img.width, img.height);
       img.set({ scaleX: s, scaleY: s, name: 'Ảnh: ' + f.name.slice(0, 24) }); center(img); checkDpi();
     });
     r.readAsDataURL(f);
@@ -236,11 +243,11 @@
     const p = $('#progress'), bar = p.querySelector('div'), txt = p.querySelector('span');
     p.hidden = false; const t0 = performance.now();
     try {
-      const r = await Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, { format, scale, onProgress: (f, m) => { bar.style.width = (f * 100) + '%'; txt.textContent = m; } });
+      const r = await Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, { format, scale, ...(window.XTK.exportOpts?.() || {}), onProgress: (f, m) => { bar.style.width = (f * 100) + '%'; txt.textContent = m; } });
       const a = document.createElement('a'); a.href = URL.createObjectURL(r.blob);
       a.download = `${($('#designName').value || 'thiet-ke').replace(/[\\/:*?"<>|]/g, '_')}_${r.width}x${r.height}.${format}`;
       a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-      toast(`Đã xuất ${r.width}×${r.height}px ${format.toUpperCase()} (300dpi${r.tiled ? ', ' + r.strips + ' mảnh' : ''}) trong ${((performance.now() - t0) / 1000).toFixed(1)}s`);
+      toast(`Đã xuất ${r.width}×${r.height}px ${format.toUpperCase()} (${window.XTK.exportOpts?.().dpi || 300}dpi${r.tiled ? ', ' + r.strips + ' mảnh' : ''}) trong ${((performance.now() - t0) / 1000).toFixed(1)}s`);
       return r;
     } catch (e) { toast('Xuất ảnh thất bại: ' + e.message); throw e; }
     finally { p.hidden = true; }
@@ -292,5 +299,5 @@
 
   renderTemplates();
   // Hooks for automated tests
-  window.XTK = { openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
+  window.XTK = { fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
 })();

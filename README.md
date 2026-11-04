@@ -51,3 +51,8 @@ Static PWA. Serve: `python3 -m http.server 8765` then open http://localhost:8765
 **Quyền riêng tư khóa API**: mọi khóa do bạn nhập, chỉ lưu trong `localStorage` của trình duyệt này, chỉ gửi tới nhà cung cấp bạn chọn; không ghi log. Service worker **không** lưu đệm bất kỳ lệnh gọi API nào (AI, ảnh, kho ảnh).
 
 **Kiểm thử**: mọi API mạng (xAI, Openverse, Pexels) được giả lập bằng `page.route`; test kiểm tra 0 lỗi console và 0 yêu cầu ra ngoài.
+
+## Giai đoạn 4
+- Ảnh chèn vào (tải lên, kéo-thả, dán, kho ảnh, ảnh AI, thành phần) luôn nằm giữa trang, vừa ~80% khung, không phóng to quá kích thước gốc (trừ ảnh rất nhỏ).
+- Thu gọn/mở 2 bảng bên (◧ / ◨, Ctrl+[ / Ctrl+] / Ctrl+\\), nhớ trạng thái trong localStorage; màn hình hẹp: bảng nổi phủ lên vùng vẽ.
+- Hộp thoại Xuất: tỉ lệ 25%–4×, chiều rộng/cao tùy chỉnh (giữ tỉ lệ), DPI + kích thước in; "Tự động tăng chất lượng" phóng to ảnh thiếu điểm ảnh trên thiết bị (tối đa 4×) trước khi xuất và cảnh báo ảnh vẫn thiếu độ phân giải; JPG mặc định 95%.

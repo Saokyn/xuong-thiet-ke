@@ -3,6 +3,8 @@ const Exporter = (() => {
   const TILE_THRESHOLD = 8000;        // px per side
   const AREA_THRESHOLD = 40e6;        // px total
   const DPI = 300;
+  // Smoother bitmap resampling for every image draw (export + screen)
+  if (window.fabric) { const rf = fabric.Image.prototype._renderFill; fabric.Image.prototype._renderFill = function (ctx) { ctx.imageSmoothingQuality = 'high'; return rf.call(this, ctx); }; }
 
   // ---- CRC32 for PNG chunks
   const CRC = new Uint32Array(256);
@@ -43,17 +45,19 @@ const Exporter = (() => {
     const objs = canvas.getObjects(); const caching = objs.map(o => o.objectCaching);
     objs.forEach(o => { o.objectCaching = false; });          // avoid down-scaled caches
     canvas.viewportTransform = [1, 0, 0, 1, 0, 0];
+    const undo = Exporter.boost ? Exporter.boost(canvas, scale) : null; // optional quality boost (swaps low-res bitmaps)
     try {
       return canvas.toCanvasElement(scale, { left: x, top: y, width: w, height: h });
     } finally {
       canvas.viewportTransform = saved;
       objs.forEach((o, i) => { o.objectCaching = caching[i]; });
+      if (undo) undo();
     }
   }
 
   const tick = () => new Promise(r => setTimeout(r, 0));
 
-  async function exportDesign(canvas, W, H, { format = 'png', scale = 1, quality = 0.92, onProgress = () => {} } = {}) {
+  async function exportDesign(canvas, W, H, { format = 'png', scale = 1, quality = 0.95, dpi = DPI, onProgress = () => {} } = {}) {
     const ow = Math.round(W * scale), oh = Math.round(H * scale);
     const big = ow > TILE_THRESHOLD || oh > TILE_THRESHOLD || ow * oh > AREA_THRESHOLD;
     canvas.discardActiveObject?.(); canvas.requestRenderAll();
@@ -62,12 +66,12 @@ const Exporter = (() => {
       const el = renderRegion(canvas, 0, 0, W, H, scale);
       if (format === 'jpg') {
         const c2 = document.createElement('canvas'); c2.width = el.width; c2.height = el.height;
-        const g = c2.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c2.width, c2.height); g.drawImage(el, 0, 0);
+        const g = c2.getContext('2d'); g.imageSmoothingQuality = 'high'; g.fillStyle = '#fff'; g.fillRect(0, 0, c2.width, c2.height); g.drawImage(el, 0, 0);
         const blob = await new Promise(r => c2.toBlob(r, 'image/jpeg', quality));
-        onProgress(1, 'Xong'); return { blob: await jpgWithDpi(blob, DPI), width: el.width, height: el.height, tiled: false };
+        onProgress(1, 'Xong'); return { blob: await jpgWithDpi(blob, dpi), width: el.width, height: el.height, tiled: false };
       }
       const blob = await new Promise(r => el.toBlob(r, 'image/png'));
-      onProgress(1, 'Xong'); return { blob: await pngWithDpi(blob, DPI), width: el.width, height: el.height, tiled: false };
+      onProgress(1, 'Xong'); return { blob: await pngWithDpi(blob, dpi), width: el.width, height: el.height, tiled: false };
     }
     // ---- Tiled: render horizontal strips, stream them into an encoder, never hold the full bitmap.
     let stripH = Math.max(8, Math.min(2048, Math.floor(12e6 / ow / 8) * 8));   // ~48MB RGBA per strip
@@ -84,7 +88,7 @@ const Exporter = (() => {
       return { data: tg.getImageData(0, 0, ow, h).data, h };
     };
     if (format === 'jpg') {
-      const enc = new window.StreamJPEGEncoder(Math.round(quality * 100), DPI);
+      const enc = new window.StreamJPEGEncoder(Math.round(quality * 100), dpi);
       const parts = [enc.begin(ow, oh)];
       for (let i = 0; i < strips; i++) {
         const { data, h } = getStrip(i); parts.push(enc.addStrip(data, h));
@@ -96,7 +100,7 @@ const Exporter = (() => {
     // PNG streaming: zlib via CompressionStream('deflate'), each output chunk -> one IDAT
     const ihdr = new Uint8Array(13); const dv = new DataView(ihdr.buffer);
     dv.setUint32(0, ow); dv.setUint32(4, oh); ihdr[8] = 8; ihdr[9] = 6; // RGBA
-    const parts = [PNG_SIG, ...chunk('IHDR', ihdr), ...chunk('pHYs', pHYs(DPI))];
+    const parts = [PNG_SIG, ...chunk('IHDR', ihdr), ...chunk('pHYs', pHYs(dpi))];
     const cs = new CompressionStream('deflate'); const writer = cs.writable.getWriter(); const reader = cs.readable.getReader();
     const reading = (async () => { for (;;) { const { value, done } = await reader.read(); if (done) break; parts.push(...chunk('IDAT', value)); } })();
     const rowLen = ow * 4 + 1;
@@ -111,6 +115,6 @@ const Exporter = (() => {
     parts.push(...chunk('IEND', new Uint8Array(0)));
     return { blob: new Blob(parts, { type: 'image/png' }), width: ow, height: oh, tiled: true, strips };
   }
-  return { exportDesign, renderRegion, TILE_THRESHOLD };
+  return { exportDesign, renderRegion, TILE_THRESHOLD, boost: null };
 })();
 window.Exporter = Exporter;

@@ -214,11 +214,11 @@
   // ================= Images, frames, collage
   const isCell = o => o && o.type === 'image' && o.xtk?.cell;
   async function placeImage(url, name, pos) {
-    const target = pos ? null : canvas.getActiveObject();
+    const target = pos ? null : canvas.getActiveObject(); // pos (truthy) = never fill the selected frame cell
     if (isCell(target)) { await FX.fillCell(target, url); canvas.requestRenderAll(); X.snapshot(); X.renderProps(); X.checkDpi(); return target; }
     return new Promise(res => fabric.Image.fromURL(url, img => {
-      const s = Math.min(1, st.tpl.w * 0.8 / img.width, st.tpl.h * 0.8 / img.height);
-      img.set({ scaleX: s, scaleY: s, name: name || 'Ảnh' }); add(img, pos); X.checkDpi(); res(img);
+      const s = X.fitScale(img.width, img.height); // inserted images always land centred on the page
+      img.set({ scaleX: s, scaleY: s, name: name || 'Ảnh' }); add(img); X.checkDpi(); res(img);
     }, { crossOrigin: 'anonymous' }));
   }
   $('#uploadImg').onchange = async e => { const f = e.target.files[0]; if (!f) return; e.target.value = ''; placeImage(await readFile(f), 'Ảnh: ' + f.name.slice(0, 24)); };
@@ -232,12 +232,12 @@
     e.preventDefault();
     const p = canvas.getPointer(e, true), scene = canvas.getPointer(e);
     const emoji = e.dataTransfer.getData('text/emoji');
-    if (emoji) return addEmoji(emoji, scene);
+    if (emoji) return addEmoji(emoji);
     const f = [...(e.dataTransfer.files || [])].find(f => f.type.startsWith('image/')); if (!f) return;
     const url = await readFile(f);
     const hit = canvas.getObjects().slice().reverse().find(o => isCell(o) && o.containsPoint(new fabric.Point(p.x, p.y)));
     if (hit) { await FX.fillCell(hit, url); canvas.setActiveObject(hit); canvas.requestRenderAll(); X.snapshot(); X.checkDpi(); }
-    else placeImage(url, 'Ảnh: ' + f.name.slice(0, 24), scene);
+    else placeImage(url, 'Ảnh: ' + f.name.slice(0, 24), true);
   });
   document.addEventListener('dragstart', e => { const em = e.target.dataset?.emoji; if (em) e.dataTransfer.setData('text/emoji', em); });
   const FRAMES = [['Vuông', 'rect'], ['Bo góc', 'round'], ['Tròn', 'circle'], ['Trái tim', 'heart'], ['Ngôi sao', 'star'], ['Lục giác', 'hexagon'], ['Thoi', 'diamond'], ['Vòm', 'arch'], ['Blob', 'blob'], ['Blob 2', 'blob2'], ['Đám mây', 'cloud'], ['Lá', 'leaf']];
@@ -542,7 +542,7 @@
     try { return await fn(); } finally { canvas.backgroundColor = bg; if (r) r.visible = true; canvas.requestRenderAll(); }
   }
   async function exportPNGT() {
-    const r = await withTransparent(() => Exporter.exportDesign(canvas, st.tpl.w, st.tpl.h, { format: 'png', scale: +$('#exportScale').value, onProgress: prog.on }));
+    const r = await withTransparent(() => Exporter.exportDesign(canvas, st.tpl.w, st.tpl.h, { format: 'png', scale: +$('#exportScale').value, ...(X.exportOpts?.() || {}), onProgress: prog.on }));
     prog.off(); download(r.blob, `${fname()}_${r.width}x${r.height}_trong-suot.png`); toast('Đã xuất PNG nền trong suốt'); return r;
   }
   async function exportPDF() {
@@ -559,7 +559,7 @@
       if (r && bpx) r.set({ left: 0, top: 0, width: t.w, height: t.h });
       const c2 = document.createElement('canvas'); c2.width = el.width; c2.height = el.height; const g = c2.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c2.width, c2.height); g.drawImage(el, 0, 0);
       if (i) pdf.addPage([Wmm, Hmm], Wmm > Hmm ? 'l' : 'p');
-      pdf.addImage(c2.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, Wmm, Hmm, undefined, 'FAST');
+      pdf.addImage(c2.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, Wmm, Hmm, undefined, 'FAST');
       el.width = el.height = c2.width = c2.height = 0;
       if (bleed) { // crop marks inside the bleed zone
         pdf.setDrawColor(0); pdf.setLineWidth(0.15);

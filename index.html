@@ -191,6 +191,7 @@ Trần Thị Bình,Kế toán</textarea>
     </aside>
     <div class="stage-wrap">
       <div class="toolbar">
+        <button id="toggleLeft" class="ptoggle" title="Thu gọn / mở bảng bên trái (Ctrl+[)" aria-label="Thu gọn bảng trái">◧</button>
         <button id="undo" title="Hoàn tác (Ctrl+Z)">↶</button>
         <button id="redo" title="Làm lại (Ctrl+Y)">↷</button>
         <button id="del" title="Xóa (Delete)">🗑</button>
@@ -209,13 +210,12 @@ Trần Thị Bình,Kế toán</textarea>
         <span class="sep"></span>
         <input id="designName" placeholder="Tên thiết kế" value="Thiết kế mới">
         <button id="save" class="primary">💾 Lưu</button>
-        <select id="exportFmt"><option value="png">PNG</option><option value="jpg">JPG</option><option value="png-t">PNG nền trong suốt</option><option value="pdf">PDF</option><option value="svg">SVG</option><option value="zip">ZIP (mọi trang, PNG)</option></select>
-        <select id="exportScale"><option value="1">Kích thước đầy đủ</option><option value="0.25">Xem trước 25%</option></select>
-        <label class="small" title="Thêm 3mm tràn lề và dấu cắt cho PDF in"><input type="checkbox" id="bleed"> Tràn lề</label>
-        <button id="exportBtn" class="primary">⬇ Xuất</button>
+        <input type="hidden" id="exportScale" value="1">
+        <button id="exportBtn" class="primary" title="Tùy chọn xuất: kích thước, DPI, chất lượng">⬇ Xuất…</button>
         <button id="resizeBtn" title="Đổi kích thước thông minh">⇲ Đổi cỡ</button>
         <select id="projMenu"><option value="">Dự án…</option><option value="exp">Xuất dự án .json</option><option value="imp">Nhập dự án .json</option><option value="backup">Sao lưu toàn bộ (.zip)</option><option value="restore">Khôi phục từ .zip</option></select>
         <input id="projFile" type="file" accept=".json,application/json" hidden><input id="restoreFile" type="file" accept=".zip" hidden>
+        <button id="toggleRight" class="ptoggle" title="Thu gọn / mở bảng thuộc tính (Ctrl+])" aria-label="Thu gọn bảng thuộc tính">◨</button>
       </div>
       <div id="sizeInfo" class="sizeinfo"></div>
       <div id="dpiWarn" class="warn" hidden></div>
@@ -238,6 +238,20 @@ Trần Thị Bình,Kế toán</textarea>
   </section>
 </main>
 
+<!-- Export dialog -->
+<dialog id="exportDlg">
+  <h3>Xuất thiết kế</h3>
+  <label class="dl-row">Định dạng <select id="exportFmt"><option value="png">PNG</option><option value="jpg">JPG</option><option value="png-t">PNG nền trong suốt</option><option value="pdf">PDF</option><option value="svg">SVG</option><option value="zip">ZIP (mọi trang, PNG)</option></select></label>
+  <div class="small muted">Tỉ lệ</div>
+  <div class="row wrap" id="expPresets"><button data-s="0.25">25%</button><button data-s="0.5">0.5×</button><button data-s="1">1×</button><button data-s="2">2×</button><button data-s="3">3×</button><button data-s="4">4×</button></div>
+  <div class="row exp-size"><label>Rộng (px)<input id="expW" type="number" min="16" max="30000"></label><span title="Giữ nguyên tỉ lệ khung hình">🔒</span><label>Cao (px)<input id="expH" type="number" min="16" max="30000"></label><label>DPI<input id="expDpi" type="number" min="36" max="2400"></label></div>
+  <div id="expInfo" class="small exp-info"></div>
+  <label class="small"><input type="checkbox" id="expBoost" checked> Tự động tăng chất lượng <span class="muted">(dựng chữ/hình vector ở độ phân giải đích, tự phóng to ảnh thiếu điểm ảnh trên thiết bị)</span></label>
+  <label class="small" id="expQRow">Chất lượng JPG: <b id="expQv">95</b><input type="range" id="expQ" min="60" max="100" value="95"></label>
+  <label class="small" title="Thêm 3mm tràn lề và dấu cắt cho PDF in"><input type="checkbox" id="bleed"> Tràn lề 3mm + dấu cắt (PDF in)</label>
+  <div id="expWarn" class="warn exp-warn" hidden></div>
+  <div class="row"><button id="expGo" class="primary">⬇ Xuất</button><button id="expClose">Đóng</button></div>
+</dialog>
 <!-- Smart resize dialog -->
 <dialog id="resizeDlg">
   <h3>Đổi kích thước thông minh</h3>
@@ -303,5 +317,6 @@ Trần Thị Bình,Kế toán</textarea>
 <script src="js/features.js"></script>
 <script src="vendor/gifenc.js"></script>
 <script src="js/phase3.js"></script>
+<script src="js/phase4.js"></script>
 </body>
 </html>

@@ -476,5 +476,5 @@ If the request violates these rules, rewrite it into a safe alternative. Reply O
   $('#animWebm').onclick = () => exportWebM().catch(e => toast('Xuất WebM thất bại: ' + e.message));
   $('#animGif').onclick = () => exportGIF().catch(e => toast('Xuất GIF thất bại: ' + e.message));
 
-  Object.assign(window.XTK, { stockSearch, addStock, sanitizeCopy, aiCopy, sanitizeDesign, designJSON, applyDesign, aiDesign, checkImagePrompt, genImage, refinePrompt, placeAI, upscale, markErase, eraseObject, expand, sanitizeFabric, loadCommunity, openCommunity, setAnim, autoAnim, preview, exportWebM, exportGIF });
+  Object.assign(window.XTK, { upscaleCanvas, stockSearch, addStock, sanitizeCopy, aiCopy, sanitizeDesign, designJSON, applyDesign, aiDesign, checkImagePrompt, genImage, refinePrompt, placeAI, upscale, markErase, eraseObject, expand, sanitizeFabric, loadCommunity, openCommunity, setAnim, autoAnim, preview, exportWebM, exportGIF });
 })();
