@@ -27,3 +27,27 @@ Static PWA. Serve: `python3 -m http.server 8765` then open http://localhost:8765
 **Giấy phép tài nguyên**: xem `credits.html`. Toàn bộ mẫu, khung, họa tiết là tác phẩm gốc; không dùng tài nguyên của Canva/Penci.
 
 **Kiểm thử**: `python3 -m http.server 8765` rồi `CHROME=… PW=…/playwright-core node tests/e2e.js` (`SKIP_BIG=1` bỏ qua xuất poster lớn, `TEST_BGR=1` kiểm thử xóa nền, cần mạng). Sau khi đổi tài nguyên, chạy lại `node /workspace/xtk-tools/mksw.js` để tạo lại `sw.js`.
+
+## Giai đoạn 3
+
+**Kho ảnh** (tab *Kho ảnh*, cần Internet): Openverse (không cần khóa), Pexels và Unsplash (tùy chọn, bạn tự dán khóa API). Mỗi ảnh chèn vào lưu thông tin tác giả/giấy phép (`xtk.credit`), có tùy chọn chèn dòng “Ảnh: …” lên trang. Hãy tuân thủ giấy phép từng ảnh (Openverse: CC/PD; Pexels/Unsplash: giấy phép riêng của họ, Unsplash yêu cầu ghi công & theo dõi lượt tải; ứng dụng gọi endpoint download khi chèn).
+
+**Ý tưởng AI** (cần Internet + khóa, dùng chung cài đặt API OpenAI-compatible; mặc định xAI):
+- *Viết quảng cáo*: tiêu đề/caption/hashtag, bấm để chèn.
+- *Thiết kế từ mô tả*: AI trả về JSON → được kiểm tra (chỉ các loại đối tượng/phông được phép, giới hạn tọa độ, màu hex, bỏ HTML) → dựng thành đối tượng Fabric, có ô “Ô ảnh AI”.
+- *Tạo ảnh*: endpoint `/images/generations` (model chỉnh được, mặc định `grok-2-image`). Chính sách an toàn nằm **cả** trong system prompt **và** kiểm tra phía máy: chỉ người lớn hư cấu từ 25 tuổi, không người thật/người nổi tiếng, không nội dung tình dục, không trẻ em. Prompt ảnh phải bằng tiếng Anh (có nút viết prompt từ mô tả tiếng Việt).
+
+**Công cụ ảnh** (tab Ảnh): Phóng to 2×/4× (trên máy), Xóa vật thể (đánh dấu vùng → vá ảnh trên máy), Mở rộng ảnh (trên máy: phản chiếu + làm mờ; hoặc AI qua `/images/edits` — nếu nhà cung cấp không hỗ trợ sẽ tự lùi về cách trên máy).
+
+**Mẫu cộng đồng** (tab *Cộng đồng*): đọc `community/index.json` (đổi URL trong tab). Mẫu được làm sạch trước khi mở (chỉ loại đối tượng Fabric an toàn, ảnh chỉ `data:`/https).
+Đóng góp mẫu qua Pull Request:
+1. Thiết kế trong ứng dụng → *Dự án… → Xuất .xtk.json*.
+2. Fork kho, thêm file vào `community/<ten-mau>.json` (≤ 2MB, chỉ dùng tài nguyên bạn có quyền, khuyến nghị CC0).
+3. Thêm mục vào `community/index.json`: `{ "id", "name", "author", "license", "size", "file", "tags" }`.
+4. Chạy `node /workspace/xtk-tools/mksw.js` và test, rồi mở PR.
+
+**Hoạt ảnh** (tab *Hoạt ảnh*): hiệu ứng xuất hiện cho từng đối tượng (mờ dần, trượt, thu phóng, bật nảy), độ trễ/thời lượng, tự động, xem trước; xuất **WebM** (MediaRecorder) và **GIF** (gifenc, kèm sẵn) hoàn toàn trên máy.
+
+**Quyền riêng tư khóa API**: mọi khóa do bạn nhập, chỉ lưu trong `localStorage` của trình duyệt này, chỉ gửi tới nhà cung cấp bạn chọn; không ghi log. Service worker **không** lưu đệm bất kỳ lệnh gọi API nào (AI, ảnh, kho ảnh).
+
+**Kiểm thử**: mọi API mạng (xAI, Openverse, Pexels) được giả lập bằng `page.route`; test kiểm tra 0 lỗi console và 0 yêu cầu ra ngoài.

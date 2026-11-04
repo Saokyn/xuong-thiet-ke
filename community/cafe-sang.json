@@ -1,0 +1,99 @@
+{
+ "name": "Khai trương quán cà phê",
+ "size": "post-sq",
+ "json": {
+  "background": "#3e2723",
+  "objects": [
+   {
+    "type": "circle",
+    "left": -200,
+    "top": -200,
+    "radius": 520,
+    "fill": "#5d4037",
+    "opacity": 0.7,
+    "name": "Hình tròn"
+   },
+   {
+    "type": "circle",
+    "left": 700,
+    "top": 650,
+    "radius": 420,
+    "fill": "#d7a86e",
+    "opacity": 0.35,
+    "name": "Hình tròn"
+   },
+   {
+    "type": "textbox",
+    "text": "KHAI TRƯƠNG",
+    "left": 90,
+    "top": 170,
+    "width": 900,
+    "fontSize": 120,
+    "fill": "#f5e6cc",
+    "fontFamily": "Playfair Display",
+    "fontWeight": 700,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Tiêu đề"
+   },
+   {
+    "type": "textbox",
+    "text": "Cà Phê Sương Mai",
+    "left": 90,
+    "top": 330,
+    "width": 900,
+    "fontSize": 64,
+    "fill": "#d7a86e",
+    "fontFamily": "Dancing Script",
+    "fontWeight": 700,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Chữ"
+   },
+   {
+    "type": "rect",
+    "left": 290,
+    "top": 520,
+    "width": 500,
+    "height": 120,
+    "fill": "#e76f51",
+    "rx": 60,
+    "ry": 60,
+    "opacity": 1,
+    "name": "Nhãn"
+   },
+   {
+    "type": "textbox",
+    "text": "GIẢM 20%",
+    "left": 290,
+    "top": 548,
+    "width": 500,
+    "fontSize": 60,
+    "fill": "#ffffff",
+    "fontFamily": "Montserrat",
+    "fontWeight": 700,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Chữ"
+   },
+   {
+    "type": "textbox",
+    "text": "Tuần đầu tiên · 12 Hoa Hồng, Đà Lạt",
+    "left": 90,
+    "top": 820,
+    "width": 900,
+    "fontSize": 36,
+    "fill": "#f5e6cc",
+    "fontFamily": "Be Vietnam Pro",
+    "fontWeight": 400,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Chữ"
+   }
+  ]
+ }
+}

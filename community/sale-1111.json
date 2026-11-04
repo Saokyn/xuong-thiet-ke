@@ -1,0 +1,117 @@
+{
+ "name": "Siêu sale 11.11",
+ "size": "story",
+ "json": {
+  "background": "#b91c1c",
+  "objects": [
+   {
+    "type": "rect",
+    "left": 0,
+    "top": 0,
+    "width": 1080,
+    "height": 1920,
+    "fill": "#dc2626",
+    "rx": 0,
+    "ry": 0,
+    "opacity": 1,
+    "name": "Khối"
+   },
+   {
+    "type": "circle",
+    "left": 540,
+    "top": 520,
+    "radius": 420,
+    "fill": "#f97316",
+    "opacity": 0.6,
+    "name": "Hình tròn"
+   },
+   {
+    "type": "textbox",
+    "text": "11.11",
+    "left": 90,
+    "top": 300,
+    "width": 900,
+    "fontSize": 260,
+    "fill": "#fff7ed",
+    "fontFamily": "Bungee",
+    "fontWeight": 700,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Tiêu đề"
+   },
+   {
+    "type": "textbox",
+    "text": "SIÊU SALE",
+    "left": 90,
+    "top": 620,
+    "width": 900,
+    "fontSize": 120,
+    "fill": "#fde68a",
+    "fontFamily": "Montserrat",
+    "fontWeight": 700,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Chữ"
+   },
+   {
+    "type": "rect",
+    "left": 190,
+    "top": 900,
+    "width": 700,
+    "height": 180,
+    "fill": "#111827",
+    "rx": 90,
+    "ry": 90,
+    "opacity": 1,
+    "name": "Khối"
+   },
+   {
+    "type": "textbox",
+    "text": "ĐẾN 50%",
+    "left": 190,
+    "top": 935,
+    "width": 700,
+    "fontSize": 100,
+    "fill": "#ffffff",
+    "fontFamily": "Montserrat",
+    "fontWeight": 700,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Chữ"
+   },
+   {
+    "type": "textbox",
+    "text": "Mua ngay kẻo lỡ!",
+    "left": 90,
+    "top": 1250,
+    "width": 900,
+    "fontSize": 64,
+    "fill": "#fff7ed",
+    "fontFamily": "Be Vietnam Pro",
+    "fontWeight": 400,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Chữ"
+   },
+   {
+    "type": "textbox",
+    "text": "#sale1111 #giamgia",
+    "left": 90,
+    "top": 1700,
+    "width": 900,
+    "fontSize": 40,
+    "fill": "#fecaca",
+    "fontFamily": "Be Vietnam Pro",
+    "fontWeight": 400,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Chữ"
+   }
+  ]
+ }
+}

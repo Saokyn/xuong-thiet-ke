@@ -54,6 +54,9 @@
       <button data-tab="bg" title="Nền">🎨<span>Nền</span></button>
       <button data-tab="brand" title="Thương hiệu">🏷<span>Thương hiệu</span></button>
       <button data-tab="tools" title="Công cụ">🧰<span>Công cụ</span></button>
+      <button data-tab="stock" title="Ảnh miễn phí">📷<span>Kho ảnh</span></button>
+      <button data-tab="community" title="Mẫu cộng đồng">🌐<span>Cộng đồng</span></button>
+      <button data-tab="anim" title="Hoạt ảnh">🎬<span>Hoạt ảnh</span></button>
     </nav>
     <aside class="tools panel">
       <div class="tab" data-tab="tpl">
@@ -77,6 +80,14 @@
       <div class="tab" data-tab="img">
         <label class="btn primary-ish">⬆ Tải ảnh lên<input id="uploadImg" type="file" accept="image/*" hidden></label>
         <p class="small muted">Chọn một khung ảnh rồi tải lên, hoặc kéo-thả ảnh vào khung.</p>
+        <h4>Công cụ ảnh</h4>
+        <p class="small muted">Chọn một ảnh trên thiết kế. 📴 = chạy trên máy, ngoại tuyến · 🌐🔑 = cần Internet + API key.</p>
+        <div class="row"><button id="itUp2">📴 Phóng to 2×</button><button id="itUp4">📴 Phóng to 4×</button></div>
+        <div class="row"><button id="itEraseArea">📴 Chọn vùng cần xóa</button><button id="itEraseGo">📴 Xóa vật thể</button></div>
+        <label class="small">Mở rộng ảnh <select id="itExpPct"><option value="0.25">25%</option><option value="0.5">50%</option></select></label>
+        <div class="row"><button id="itExpLocal">📴 Mở rộng (phản chiếu + mờ)</button><button id="itExpAI">🌐🔑 Mở rộng bằng AI</button></div>
+        <input id="itExpPrompt" placeholder="Prompt mở rộng (tiếng Anh, tùy chọn)">
+        <p class="small muted">“Mở rộng bằng AI” gọi <code>/images/edits</code> của nhà cung cấp (VD OpenAI gpt-image-1). Nếu nhà cung cấp không hỗ trợ, ứng dụng tự chuyển sang cách mở rộng trên máy.</p>
         <h4>Khung ảnh</h4>
         <div id="frameList" class="iconlist"></div>
         <h4>Lưới ghép ảnh (collage)</h4>
@@ -140,6 +151,42 @@ Trần Thị Bình,Kế toán</textarea>
         <h4>Tách nền ảnh (AI trên thiết bị)</h4>
         <button id="bgRemove">✂️ Xóa nền ảnh đang chọn</button>
         <p class="small muted">Lần đầu tải mô hình (~40 MB) rồi lưu bộ nhớ đệm để dùng ngoại tuyến.</p>
+      </div>
+      <div class="tab" data-tab="stock">
+        <h4>Ảnh miễn phí</h4>
+        <div class="row"><select id="stockSrc"><option value="openverse">Openverse (không cần khóa)</option><option value="pexels">Pexels</option><option value="unsplash">Unsplash</option></select></div>
+        <div class="row"><input id="stockQ" placeholder="VD: coffee, hoa sen, beach" value=""><button id="stockGo" class="primary">Tìm</button></div>
+        <details id="stockKeys"><summary class="small">Khóa API Pexels / Unsplash (tùy chọn)</summary>
+          <label class="small">Pexels API key<input id="pexelsKey" type="password" autocomplete="off"></label>
+          <label class="small">Unsplash Access Key<input id="unsplashKey" type="password" autocomplete="off"></label>
+          <div class="row"><button id="stockSaveKeys">Lưu khóa</button><button id="stockClearKeys">Xóa khóa</button></div>
+          <p class="small muted">Khóa chỉ lưu trên thiết bị (localStorage) và chỉ gửi tới Pexels/Unsplash.</p></details>
+        <label class="small"><input type="checkbox" id="stockAttr" checked> Chèn dòng ghi công tác giả vào thiết kế</label>
+        <p class="small muted">🌐 Cần Internet. Bấm ảnh để thêm (hoặc thay ảnh trong khung đang chọn).</p>
+        <div id="stockStatus" class="small muted"></div>
+        <div id="stockGrid" class="stock-grid"></div>
+        <button id="stockMore" hidden>Xem thêm</button>
+      </div>
+      <div class="tab" data-tab="community">
+        <h4>Mẫu cộng đồng</h4>
+        <label class="small">Nguồn chỉ mục (URL JSON)<input id="comUrl" value="community/index.json"></label>
+        <div class="row"><button id="comLoad" class="primary">Tải mẫu</button><button id="comReset">Mặc định</button></div>
+        <div id="comStatus" class="small muted"></div>
+        <div id="comGrid" class="com-grid"></div>
+        <p class="small muted">Muốn góp mẫu? Xem hướng dẫn gửi Pull Request trong README (thư mục <code>community/</code>).</p>
+      </div>
+      <div class="tab" data-tab="anim">
+        <h4>Hiệu ứng xuất hiện</h4>
+        <p class="small muted">Chọn một đối tượng rồi chọn hiệu ứng.</p>
+        <div id="animEffects" class="row wrap"><button data-anim="none">Không</button><button data-anim="fade">Mờ dần</button><button data-anim="slide-left">Trượt trái</button><button data-anim="slide-up">Trượt lên</button><button data-anim="zoom">Thu phóng</button><button data-anim="pop">Bật nảy</button></div>
+        <label class="small">Bắt đầu sau (giây) <input id="animDelay" type="number" min="0" max="10" step="0.1" value="0"></label>
+        <label class="small">Thời lượng (giây) <input id="animDur" type="number" min="0.1" max="5" step="0.1" value="0.6"></label>
+        <div id="animInfo" class="small muted"></div>
+        <div class="row"><button id="animAuto">✨ Tự động cho mọi đối tượng</button><button id="animPreview">▶ Xem trước</button></div>
+        <h4>Xuất video / ảnh động</h4>
+        <label class="small">Chiều dài cạnh lớn nhất <select id="animSize"><option value="480">480px</option><option value="720" selected>720px</option><option value="1080">1080px</option></select></label>
+        <div class="row"><button id="animWebm" class="primary">⬇ WebM</button><button id="animGif" class="primary">⬇ GIF</button></div>
+        <p class="small muted">📴 Xuất hoàn toàn trên máy (MediaRecorder + bộ mã hóa GIF đi kèm).</p>
       </div>
     </aside>
     <div class="stage-wrap">
@@ -210,10 +257,30 @@ Trần Thị Bình,Kế toán</textarea>
     <div class="row"><button id="aiSaveKey">Lưu cài đặt</button><button id="aiClearKey">Xóa khóa</button></div>
     <p class="muted small">Khóa được lưu trong localStorage của trình duyệt và chỉ được gửi tới Base URL bạn chọn.</p>
   </details>
+  <div class="aitabs"><button data-ai="idea" class="on">Ý tưởng</button><button data-ai="copy">Viết quảng cáo</button><button data-ai="design">Thiết kế từ mô tả</button><button data-ai="image">Tạo ảnh</button></div>
+  <div class="aisec" data-ai="copy" hidden>
+    <label>Sản phẩm / dịch vụ<textarea id="aiCopyQ" rows="3" placeholder="VD: Trà sữa trân châu đường đen, quán mới ở Quận 3"></textarea></label>
+    <label class="small">Giọng văn <select id="aiTone"><option>trẻ trung, vui vẻ</option><option>sang trọng, tinh tế</option><option>thân thiện, gần gũi</option><option>chuyên nghiệp</option></select></label>
+    <button id="aiCopyGo" class="primary">Viết nội dung</button><div id="aiCopyStatus" class="muted small"></div><div id="aiCopyResult"></div>
+  </div>
+  <div class="aisec" data-ai="design" hidden>
+    <label>Mô tả thiết kế<textarea id="aiDesignQ" rows="4" placeholder="VD: Banner sale 11.11 cửa hàng giày, nền đỏ cam, giảm đến 50%"></textarea></label>
+    <label class="small"><input type="checkbox" id="aiUseBrand"> Ưu tiên màu/phông từ Bộ nhận diện</label>
+    <button id="aiDesignGo" class="primary">Tạo thiết kế</button><div id="aiDesignStatus" class="muted small"></div>
+  </div>
+  <div class="aisec" data-ai="image" hidden>
+    <label class="small">Model ảnh<input id="aiImgModel" value="grok-2-image"></label>
+    <label>Prompt (tiếng Anh)<textarea id="aiImgQ" rows="3" placeholder="A cup of iced coffee on a wooden table, morning light"></textarea></label>
+    <div class="row"><button id="aiImgRefine">✍️ Viết prompt từ mô tả tiếng Việt</button><button id="aiImgGo" class="primary">🎨 Tạo ảnh</button></div>
+    <p class="muted small">Chỉ cho phép người lớn hư cấu từ 25 tuổi trở lên; không người thật/người nổi tiếng, không nội dung tình dục, không trẻ em. Prompt phải bằng tiếng Anh.</p>
+    <div id="aiImgStatus" class="muted small"></div><div id="aiImgResult" class="stock-grid"></div>
+  </div>
+  <div class="aisec" data-ai="idea">
   <label>Bạn muốn thiết kế gì?<textarea id="aiPrompt" rows="4" placeholder="VD: Poster khai trương quán cà phê phong cách vintage ở Đà Lạt, giảm 20% tuần đầu"></textarea></label>
   <button id="aiGo" class="primary">Tạo ý tưởng</button>
   <div id="aiStatus" class="muted small"></div>
   <div id="aiResult"></div>
+  </div>
 </aside>
 
 <div id="toast" class="toast" hidden></div>
@@ -234,5 +301,7 @@ Trần Thị Bình,Kế toán</textarea>
 <script src="js/ai.js"></script>
 <script src="js/app.js"></script>
 <script src="js/features.js"></script>
+<script src="vendor/gifenc.js"></script>
+<script src="js/phase3.js"></script>
 </body>
 </html>

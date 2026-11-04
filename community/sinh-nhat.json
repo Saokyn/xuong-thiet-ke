@@ -1,0 +1,69 @@
+{
+ "name": "Thiệp sinh nhật pastel",
+ "size": "a5",
+ "json": {
+  "background": "#fdf2f8",
+  "objects": [
+   {
+    "type": "circle",
+    "left": -150,
+    "top": -150,
+    "radius": 500,
+    "fill": "#fbcfe8",
+    "opacity": 0.8,
+    "name": "Hình tròn"
+   },
+   {
+    "type": "circle",
+    "left": 1400,
+    "top": 2200,
+    "radius": 600,
+    "fill": "#c7d2fe",
+    "opacity": 0.8,
+    "name": "Hình tròn"
+   },
+   {
+    "type": "textbox",
+    "text": "Chúc Mừng Sinh Nhật",
+    "left": 100,
+    "top": 600,
+    "width": 1548,
+    "fontSize": 170,
+    "fill": "#be185d",
+    "fontFamily": "Pacifico",
+    "fontWeight": 400,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Tiêu đề"
+   },
+   {
+    "type": "textbox",
+    "text": "Gửi bạn thân yêu — tuổi mới thật nhiều niềm vui!",
+    "left": 150,
+    "top": 1100,
+    "width": 1448,
+    "fontSize": 72,
+    "fill": "#4c1d95",
+    "fontFamily": "Quicksand",
+    "fontWeight": 400,
+    "textAlign": "center",
+    "lineHeight": 1.15,
+    "styles": {},
+    "name": "Chữ"
+   },
+   {
+    "type": "rect",
+    "left": 574,
+    "top": 1500,
+    "width": 600,
+    "height": 8,
+    "fill": "#be185d",
+    "rx": 0,
+    "ry": 0,
+    "opacity": 1,
+    "name": "Khối"
+   }
+  ]
+ }
+}

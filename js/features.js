@@ -513,13 +513,16 @@
   }
   async function gotoPage(i, save = true) { if (save) savePage(); st.cur = i; await loadPage(st.pages[i]); renderPages(); }
   function renderPages() {
-    const p = $('#pages'); p.innerHTML = '';
+    const p = $('#pages'); p.innerHTML = ''; if (st.tpl) try { thumbs[st.cur] = X.thumb(); } catch (e) {}
     st.pages.forEach((_, i) => {
       const b = document.createElement('button'); b.className = 'page' + (i === st.cur ? ' on' : ''); b.title = 'Trang ' + (i + 1);
-      b.innerHTML = (thumbs[i] && i !== st.cur ? `<img src="${thumbs[i]}" alt="">` : '') + `<span>${i + 1}</span>`;
+      b.innerHTML = (thumbs[i] ? `<img src="${thumbs[i]}" alt="">` : '') + `<span>${i + 1}</span>`;
       b.onclick = () => i !== st.cur && gotoPage(i); p.appendChild(b);
     });
   }
+  // Keep the current page's tab thumbnail live (debounced)
+  let thumbT; const liveThumb = () => { clearTimeout(thumbT); thumbT = setTimeout(() => { if (!st.tpl) return; const img = $('#pages .page.on img'); thumbs[st.cur] = X.thumb(); if (img) img.src = thumbs[st.cur]; else renderPages(); }, 400); };
+  ['object:added', 'object:modified', 'object:removed'].forEach(ev => canvas.on(ev, liveThumb));
   H.opened = () => { if (!X.setRestoring) return; thumbs.length = 0; renderPages(); setTimeout(drawRulers, 30); };
   H.pages = () => { thumbs.length = 0; renderPages(); };
   $('#pageAdd').onclick = async () => { savePage(); st.pages.splice(st.cur + 1, 0, null); thumbs.splice(st.cur + 1, 0, null); await gotoPage(st.cur + 1, false); };

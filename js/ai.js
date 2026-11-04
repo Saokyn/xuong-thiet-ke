@@ -33,29 +33,26 @@ Nếu yêu cầu người dùng vi phạm các quy tắc trên, hãy thay bằng
     throw new Error('Phản hồi không phải JSON hợp lệ');
   }
 
-  async function generate(userPrompt, ctx) {
-    const key = localStorage.getItem(K.key);
-    if (!key) throw new Error('Chưa có API key. Mở "Cài đặt API" để nhập khóa.');
-    const { base, model } = settings();
+  const needKey = () => { const key = localStorage.getItem(K.key); if (!key) throw new Error('Chưa có API key. Mở "Cài đặt API" để nhập khóa.'); return key; };
+  // Generic chat call returning parsed JSON. Key is sent only to the configured base URL.
+  async function chat(system, user, temperature = 0.8) {
+    const key = needKey(), { base, model } = settings();
     const res = await fetch(base + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
-      body: JSON.stringify({
-        model, temperature: 0.8,
-        messages: [
-          { role: 'system', content: SYSTEM },
-          { role: 'user', content: `Kích thước: ${ctx.name} (${ctx.w}×${ctx.h}px${ctx.print ? ', in 300dpi' : ''}).\nYêu cầu: ${userPrompt}` },
-        ],
-      }),
+      body: JSON.stringify({ model, temperature, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
     });
     if (!res.ok) throw new Error('Lỗi API: HTTP ' + res.status);   // never echo request headers/key
     const data = await res.json();
-    const out = parseJSON(data.choices?.[0]?.message?.content || '');
+    return parseJSON(data.choices?.[0]?.message?.content || '');
+  }
+  async function generate(userPrompt, ctx) {
+    const out = await chat(SYSTEM, `Kích thước: ${ctx.name} (${ctx.w}×${ctx.h}px${ctx.print ? ', in 300dpi' : ''}).\nYêu cầu: ${userPrompt}`);
     // Defensive client-side guard on image prompts
     out.image_prompts = (out.image_prompts || []).map(p => /\b(nude|naked|sexy|erotic|child|teen|kid|minor)\b/i.test(p)
       ? '[Đã lọc: prompt không phù hợp chính sách]' : p);
     return out;
   }
-  return { settings, save, clearKey, generate, SYSTEM };
+  return { settings, save, clearKey, generate, chat, needKey, parseJSON, SYSTEM, K };
 })();
 window.AI = AI;

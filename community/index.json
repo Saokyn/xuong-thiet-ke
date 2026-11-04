@@ -1,0 +1,33 @@
+{
+ "name": "Mẫu cộng đồng Xưởng Thiết Kế",
+ "version": 1,
+ "templates": [
+  {
+   "id": "cafe-sang",
+   "name": "Khai trương quán cà phê",
+   "cat": "Ẩm thực",
+   "size": "post-sq",
+   "file": "cafe-sang.json",
+   "author": "Saokyn",
+   "license": "CC0-1.0"
+  },
+  {
+   "id": "sale-1111",
+   "name": "Siêu sale 11.11",
+   "cat": "Bán hàng",
+   "size": "story",
+   "file": "sale-1111.json",
+   "author": "Saokyn",
+   "license": "CC0-1.0"
+  },
+  {
+   "id": "sinh-nhat",
+   "name": "Thiệp sinh nhật pastel",
+   "cat": "Sinh nhật",
+   "size": "a5",
+   "file": "sinh-nhat.json",
+   "author": "Saokyn",
+   "license": "CC0-1.0"
+  }
+ ]
+}
