@@ -137,3 +137,12 @@ Cách hoạt động:
 - Ảnh trong mẫu chung được nhúng dạng data URL, vì bucket là riêng tư, nên mẫu lớn sẽ nặng.
 - Bộ nhớ tạm `localStorage` có giới hạn dung lượng. Khi đầy, ảnh thu nhỏ của mẫu chung sẽ bị bỏ.
 - Khóa AI không bao giờ được đồng bộ.
+
+## Phase 9 — Header gọn, thanh thông tin, bảng lệnh (Ctrl+K)
+
+- **Thanh thông tin canvas** (`#sizeInfo`): một dòng ngắn `Tên mẫu · 36%`; rê chuột để xem khổ (cm), điểm ảnh (px), dpi. Cảnh báo ảnh thiếu độ phân giải giờ là huy hiệu nhỏ `⚠N` (`#dpiWarn`, ẩn khi không có lỗi); rê chuột → popover chi tiết + lời khuyên (`#dpiPop`), bấm → chọn các ảnh đó trên canvas (`XTK.selectLowDpi()`).
+- **Header**: logo (về trang chủ) + 4 tab một dòng `Mẫu` · `Thiết kế` · `Đã lưu` · `✨ AI`. Bên phải chỉ có biểu tượng: ☁ trạng thái đồng bộ (`#syncIcon`: xanh = đã lưu, xoay = đang đồng bộ, xám = ngoại tuyến/chưa đăng nhập, đỏ = lỗi; bấm = đồng bộ ngay hoặc mở đăng nhập), 🛡 Quản trị (chỉ admin) và avatar tròn (`#cloudAcct`, chữ cái đầu email hoặc 👤). Avatar mở menu: email, trạng thái trực tuyến (`#netStatus`), đăng nhập/tài khoản (`#amAccount`), `#cloudSync`, đăng xuất, *Giấy phép & ghi công*. Các ID cũ (`#cloudStatus`, `#cloudSync`, `#cloudAcct`, `#netStatus`, `#navAdmin`) vẫn giữ nguyên; `#cloudStatus` vẫn chứa văn bản trạng thái (ẩn trực quan, dùng cho trình đọc màn hình).
+- **< 900px**: tab chỉ còn biểu tượng (có `title`).
+- **Bảng lệnh** `Ctrl+K` / `⌘K`: chuyển tab, thêm chữ/hình/ảnh, xuất PNG/JPG, lưu, hoàn tác/làm lại, chế độ tập trung, thu gọn bảng thuộc tính, đồng bộ, tài khoản và mở mẫu theo tên (thư viện + khổ trống). Tìm không dấu (`thiep cuoi` → “Thiệp cưới…”), ↑↓ + Enter, Esc đóng.
+- **Thu gọn bảng thuộc tính**: nút `»` ở góc bảng (`#propsCollapse`) và tab `«` ở mép canvas (`#propsExpand`) để mở lại; dùng chung trạng thái `xtk-panels` trong localStorage với `#toggleRight`/`Ctrl+]`; canvas tự vừa khung.
+- Mã: `js/phase9.js`, CSS cuối `css/app.css`; kiểm thử “P9 …” trong `tests/e2e.js`; ảnh chụp 49–54.

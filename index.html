@@ -13,15 +13,27 @@
 <body>
 <header class="topbar">
   <a class="brand" id="logoHome" href="./" title="Về trang chủ (Mẫu &amp; kích thước)">🎨 Xưởng Thiết Kế</a>
-  <nav>
-    <button data-view="picker" class="nav active">Mẫu &amp; kích thước</button>
-    <button data-view="designer" class="nav">Thiết kế</button>
-    <button data-view="saved" class="nav">Thiết kế đã lưu</button>
-    <button id="toggleAI" class="nav ai">✨ Ý tưởng AI</button>
+  <nav class="tabs">
+    <button data-view="picker" class="nav active" title="Mẫu &amp; kích thước"><span class="ti">🗂</span><span class="tl">Mẫu</span></button>
+    <button data-view="designer" class="nav" title="Thiết kế"><span class="ti">✏️</span><span class="tl">Thiết kế</span></button>
+    <button data-view="saved" class="nav" title="Thiết kế đã lưu"><span class="ti">📁</span><span class="tl">Đã lưu</span></button>
+    <button id="toggleAI" class="nav ai" title="Ý tưởng AI"><span class="ti">✨</span><span class="tl">AI</span></button>
   </nav>
-  <a class="credits-link" href="credits.html" target="_blank">Giấy phép &amp; ghi công</a>
-  <span id="netStatus" class="net"></span>
-  <span id="cloudStatus" class="cloudst off" role="status"></span><button id="cloudSync" class="nav" hidden title="Đồng bộ thiết kế với đám mây">⟳ Đồng bộ</button><button id="cloudAcct" class="nav" title="Tài khoản &amp; đồng bộ đám mây">☁ Tài khoản</button>
+  <div class="hdr-right" id="hdrRight">
+    <button id="syncIcon" class="hicon sync off" title="Đồng bộ đám mây" aria-label="Đồng bộ đám mây"><span class="sic">☁</span><span id="cloudStatus" class="cloudst off vh" role="status"></span></button>
+    <button id="cloudAcct" class="avatar" title="Tài khoản" aria-haspopup="menu" aria-expanded="false">👤</button>
+    <div id="acctMenu" class="acctmenu" role="menu" hidden>
+      <div class="am-email" id="amEmail">Chưa đăng nhập</div>
+      <span id="netStatus" class="net"></span>
+      <hr>
+      <button id="amLogin" role="menuitem">🔑 Đăng nhập / Đăng ký</button>
+      <button id="amAccount" role="menuitem">☁ Tài khoản &amp; đồng bộ…</button>
+      <button id="cloudSync" role="menuitem" hidden title="Đồng bộ thiết kế với đám mây">⟳ Đồng bộ ngay</button>
+      <button id="amLogout" role="menuitem" hidden>↩ Đăng xuất</button>
+      <hr>
+      <a class="credits-link" href="credits.html" target="_blank" role="menuitem">📜 Giấy phép &amp; ghi công</a>
+    </div>
+  </div>
 </header>
 
 <main>
@@ -218,8 +230,7 @@ Trần Thị Bình,Kế toán</textarea>
         <button id="focusBtn" title="Chế độ tập trung (F)" aria-label="Chế độ tập trung">⛶</button>
         <button id="toggleRight" class="ptoggle" title="Thu gọn / mở bảng thuộc tính (Ctrl+])" aria-label="Thu gọn bảng thuộc tính">◨</button>
       </div>
-      <div id="sizeInfo" class="sizeinfo"></div>
-      <div id="dpiWarn" class="warn" hidden></div>
+      <div class="infobar"><span id="sizeInfo" class="sizeinfo" tabindex="0"></span><button id="dpiWarn" class="dpibadge" hidden aria-describedby="dpiPop"></button><div id="dpiPop" class="dpipop" role="tooltip" hidden></div></div>
       <div id="stage" class="stage"><canvas id="rulerTop" class="ruler top" hidden></canvas><canvas id="rulerLeft" class="ruler left" hidden></canvas><canvas id="c"></canvas>
         <div id="hbar" class="sbar h" hidden><div class="thumb"></div></div><div id="vbar" class="sbar v" hidden><div class="thumb"></div></div>
         <div id="colorPreviewBar" class="cpbar" hidden role="status"><span>🎨 Đang xem trước màu</span><button id="cpApply" class="primary">Áp dụng</button><button id="cpCancel">Hủy</button></div>
@@ -330,5 +341,6 @@ Trần Thị Bình,Kế toán</textarea>
 <script src="js/cloud-config.js"></script>
 <script src="js/cloud.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/phase9.js"></script>
 </body>
 </html>

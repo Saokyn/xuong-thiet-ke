@@ -96,7 +96,9 @@
     if (!state.tpl) return;
     const z = canvas.getZoom(), v = canvas.viewportTransform, [W, H] = stageSize();
     $('#zoomPct').textContent = (z * 100).toFixed(z < 0.1 ? 1 : 0) + '%';
-    $('#sizeInfo').textContent = `${state.tpl.name}: ${state.tpl.w} × ${state.tpl.h} px · hiển thị ${(z * 100).toFixed(z < 0.1 ? 1 : 0)}%` + (state.tpl.print ? ' · in 300dpi' : '');
+    { const pct = (z * 100).toFixed(z < 0.1 ? 1 : 0) + '%', t = state.tpl, si = $('#sizeInfo'), nm = t.name.replace(/\s*\([^)]*\)\s*$/, '');
+      si.textContent = `${nm} · ${pct}`;
+      si.title = [t.name, t.print ? `Khổ in: ${(t.w / 300 * 2.54).toFixed(1)} × ${(t.h / 300 * 2.54).toFixed(1)} cm` : '', `Điểm ảnh: ${t.w} × ${t.h} px`, t.print ? 'Độ phân giải in: 300 dpi' : 'Dùng cho màn hình (px)', `Thu phóng: ${pct}`].filter(Boolean).join('\n'); }
     [['#hbar', W, state.tpl.w * z, v[4]], ['#vbar', H, state.tpl.h * z, v[5]]].forEach(([sel, V, P, x]) => {
       const bar = $(sel), [a, b] = range(V, P), L = V + (b - a); bar.hidden = P <= V || b - a < 1; if (bar.hidden) return;
       const horiz = sel === '#hbar', track = horiz ? bar.clientWidth : bar.clientHeight, th = bar.firstElementChild;
@@ -227,13 +229,19 @@
 
   // ---------- DPI check for print templates
   function effDpi(o) { return o.type === 'image' ? o.width / (o.getScaledWidth() / 300) : Infinity; }
+  let lowDpi = [];
   function checkDpi() {
-    const w = $('#dpiWarn');
-    if (!state.tpl?.print) { w.hidden = true; return; }
-    const low = canvas.getObjects().filter(o => o.type === 'image' && effDpi(o) < 299.5);
-    if (!low.length) { w.hidden = true; return; }
-    w.hidden = false;
-    w.textContent = '⚠ Độ phân giải ảnh thấp cho bản in: ' + low.map(o => `${o.name || 'Ảnh'} ≈ ${Math.round(effDpi(o))} dpi`).join('; ') + ' (khuyến nghị ≥ 300 dpi). Thu nhỏ ảnh hoặc dùng ảnh gốc lớn hơn.';
+    const w = $('#dpiWarn'), pop = $('#dpiPop');
+    lowDpi = state.tpl?.print ? canvas.getObjects().filter(o => o.type === 'image' && effDpi(o) < 299.5) : [];
+    if (!lowDpi.length) { w.hidden = true; pop.hidden = true; w.title = ''; return; }
+    w.hidden = false; w.textContent = '⚠' + lowDpi.length;
+    w.setAttribute('aria-label', `${lowDpi.length} ảnh có độ phân giải thấp cho bản in — bấm để chọn`);
+    pop.innerHTML = '<b>⚠ Độ phân giải ảnh thấp cho bản in</b><ul></ul><p>Khuyến nghị ≥ 300 dpi. Thu nhỏ ảnh hoặc dùng ảnh gốc lớn hơn.</p><p class="muted">Bấm biểu tượng ⚠ để chọn các ảnh này.</p>';
+    const ul = pop.querySelector('ul'); lowDpi.forEach(o => { const li = document.createElement('li'); li.textContent = `${o.name || 'Ảnh'} ≈ ${Math.round(effDpi(o))} dpi`; ul.appendChild(li); });
+  }
+  function selectLowDpi() {
+    const objs = lowDpi.filter(o => canvas.getObjects().includes(o) && o.selectable !== false); if (!objs.length) return;
+    canvas.discardActiveObject(); canvas.setActiveObject(objs.length === 1 ? objs[0] : new fabric.ActiveSelection(objs, { canvas })); canvas.requestRenderAll();
   }
 
   // ---------- Palette
@@ -466,5 +474,5 @@
 
   renderTemplates();
   // Hooks for automated tests
-  window.XTK = { colorPreview: preview, previewBegin, previewCommit, previewCancel, fitPage, zoomAt, zoomSmooth, panBy, setView, view, fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
+  window.XTK = { colorPreview: preview, previewBegin, previewCommit, previewCancel, fitPage, zoomAt, zoomSmooth, panBy, setView, view, fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, selectLowDpi, lowDpi: () => lowDpi.slice(), fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
 })();
