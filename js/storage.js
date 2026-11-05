@@ -10,6 +10,9 @@ const DB = (() => {
         if (!db.objectStoreNames.contains('brand')) db.createObjectStore('brand', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('fonts')) db.createObjectStore('fonts', { keyPath: 'id' });
       };
+      // Another tab still holds the old version open (e.g. a tab running the previous release without a versionchange
+      // handler): the request simply waits — no retry loop — and the user is told once how to unblock it.
+      r.onblocked = () => { const m = 'Ứng dụng đang mở ở tab khác (bản cũ). Hãy tải lại hoặc đóng các tab đó để hoàn tất cập nhật.'; console.warn('[db] upgrade blocked by another tab'); setTimeout(() => window.XTK?.toast ? window.XTK.toast(m, 8000) : null, 0); };
       r.onsuccess = () => { const db = r.result; db.onversionchange = () => { db.close(); dbp = null; }; res(db); }; r.onerror = () => rej(r.error);
     });
     return dbp;

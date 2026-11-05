@@ -21,30 +21,43 @@
 
   // sync icon mirrors #cloudStatus (kept in DOM, visually hidden, still updated by cloud.js)
   const st = $('#cloudStatus'), sic = $('#syncIcon');
+  // Writes only when a value really changes (per the DOM spec, setting textContent/className queues a mutation record
+  // even for an identical value) and never touches the node it observes → no observer feedback loop.
+  const setP = (el, k, v) => { if (el[k] !== v) el[k] = v; };
+  let sicT = 0;
   function syncIcon() {
+    clearTimeout(sicT); sicT = 0;
     const c = st.className, off = !navigator.onLine || / off\b/.test(c) || / wait\b/.test(c) && !CS().user;
     const state = / busy\b/.test(c) ? 'busy' : / err\b/.test(c) ? 'err' : off ? 'off' : / wait\b/.test(c) ? 'wait' : / ok\b/.test(c) ? 'ok' : 'off';
-    sic.className = 'hicon sync ' + state; sic.dataset.state = state;
+    setP(sic, 'className', 'hicon sync ' + state); if (sic.dataset.state !== state) sic.dataset.state = state;
     const label = { ok: 'Đã lưu lên mây', busy: 'Đang đồng bộ…', err: 'Lỗi đồng bộ', off: navigator.onLine ? (st.textContent.replace(/^\W+\s*/, '') || 'Chưa đồng bộ') : 'Ngoại tuyến', wait: st.textContent.replace(/^\W+\s*/, '') }[state];
-    sic.title = '☁ ' + label + (st.title ? ' — ' + st.title : '') + (CS().user ? ' · bấm để đồng bộ ngay' : ' · bấm để đăng nhập');
+    setP(sic, 'title', '☁ ' + label + (st.title ? ' — ' + st.title : '') + (CS().user ? ' · bấm để đồng bộ ngay' : ' · bấm để đăng nhập'));
   }
-  new MutationObserver(syncIcon).observe(st, { attributes: true, childList: true, characterData: true, subtree: true });
+  new MutationObserver(() => { if (!sicT) sicT = setTimeout(syncIcon, 0); }).observe(st, { attributes: true, childList: true, characterData: true, subtree: true }); // coalesced
   addEventListener('online', syncIcon); addEventListener('offline', syncIcon); syncIcon();
 
   // avatar: #cloudAcct keeps its id; cloud.js writes "☁ name" into it → normalise to an initial
   const av = $('#cloudAcct'), menu = $('#acctMenu');
   const openAcctDlg = av.onclick; // original handler from cloud.js (renders + opens the account dialog)
-  let busyAv = false;
+  // cloud.js rewrites #cloudAcct ("☁ name") → re-normalise. The observer is disconnected while we write and its pending
+  // records are dropped, values are compared before writing and re-renders are coalesced: our own writes can never
+  // re-trigger it (the old busy-flag guard did not work because observer callbacks run after the flag was reset).
+  const avOpts = { childList: true, characterData: true, subtree: true };
+  let avT = 0;
+  const avObs = new MutationObserver(() => { if (!avT) avT = setTimeout(renderAvatar, 0); });
   function renderAvatar() {
-    if (busyAv) return; busyAv = true;
-    const u = CS().user, em = u && (u.email || u.id) || '';
-    av.textContent = u ? (em[0] || '?').toUpperCase() : '👤'; av.classList.toggle('in', !!u);
-    av.title = u ? 'Tài khoản: ' + em : 'Chưa đăng nhập — bấm để mở menu tài khoản';
-    $('#amEmail').textContent = u ? em : 'Chưa đăng nhập';
-    $('#amLogin').hidden = !!u; $('#amLogout').hidden = !u;
-    busyAv = false; syncIcon();
+    clearTimeout(avT); avT = 0;
+    avObs.disconnect();
+    try {
+      const u = CS().user, em = u && (u.email || u.id) || '';
+      setP(av, 'textContent', u ? (em[0] || '?').toUpperCase() : '👤'); if (av.classList.contains('in') !== !!u) av.classList.toggle('in', !!u);
+      setP(av, 'title', u ? 'Tài khoản: ' + em : 'Chưa đăng nhập — bấm để mở menu tài khoản');
+      setP($('#amEmail'), 'textContent', u ? em : 'Chưa đăng nhập');
+      setP($('#amLogin'), 'hidden', !!u); setP($('#amLogout'), 'hidden', !u);
+    } finally { avObs.takeRecords(); avObs.observe(av, avOpts); }
+    syncIcon();
   }
-  new MutationObserver(() => { if (!busyAv) renderAvatar(); }).observe(av, { childList: true, characterData: true, subtree: true });
+  avObs.observe(av, avOpts);
   document.addEventListener('xtk:cloudauth', () => setTimeout(renderAvatar, 0));
   const setMenu = on => { menu.hidden = !on; av.setAttribute('aria-expanded', String(on)); if (on) renderAvatar(); };
   av.onclick = e => { e.stopPropagation(); setMenu(menu.hidden); };
