@@ -234,16 +234,17 @@ Trần Thị Bình,Kế toán</textarea>
       <div id="stage" class="stage"><canvas id="rulerTop" class="ruler top" hidden></canvas><canvas id="rulerLeft" class="ruler left" hidden></canvas><canvas id="c"></canvas>
         <div id="hbar" class="sbar h" hidden><div class="thumb"></div></div><div id="vbar" class="sbar v" hidden><div class="thumb"></div></div>
         <div id="colorPreviewBar" class="cpbar" hidden role="status"><span>🎨 Đang xem trước màu</span><button id="cpApply" class="primary">Áp dụng</button><button id="cpCancel">Hủy</button></div>
-        <div id="floatBar" class="floatbar" role="toolbar" aria-label="Công cụ đối tượng" hidden><span id="fbText" class="fbgrp" hidden><select id="fbFont" title="Phông chữ"></select><input id="fbSize" type="number" min="4" max="2000" title="Cỡ chữ"><input id="fbColor" type="color" data-nopv title="Màu chữ"></span><span id="fbImg" class="fbgrp" hidden><button id="fbCrop" title="Cắt ảnh">✂ Cắt</button><button id="fbRmbg" title="Xóa nền (AI)">🪄 Xóa nền</button><button id="fbFilter" title="Bộ lọc &amp; chỉnh ảnh">🎛 Lọc</button></span><button id="dup" title="Nhân bản (Ctrl+D)">⧉</button><button id="del" title="Xóa (Delete)">🗑</button><button id="front" title="Lên trên cùng">⤒</button><button id="forward" title="Lên 1 lớp">↑</button><button id="backward" title="Xuống 1 lớp">↓</button><button id="back" title="Xuống dưới cùng">⤓</button><button id="group" title="Nhóm (Ctrl+G)">▣ Nhóm</button><button id="ungroup" title="Bỏ nhóm (Ctrl+Shift+G)">◫</button><button id="lock" title="Khóa/mở khóa (Ctrl+L)">🔒</button><select id="align" title="Căn chỉnh"><option value="">Căn chỉnh…</option><option value="left">Căn trái</option><option value="hcenter">Căn giữa ngang</option><option value="right">Căn phải</option><option value="top">Căn trên</option><option value="vcenter">Căn giữa dọc</option><option value="bottom">Căn dưới</option><option value="dh">Phân bố ngang</option><option value="dv">Phân bố dọc</option></select></div><div id="ctxMenu" class="ctxmenu" role="menu" hidden><button data-c="dup">⧉ Nhân bản <kbd>Ctrl+D</kbd></button><button data-c="lock">🔒 Khóa / mở khóa</button><button data-c="forward">↑ Lên 1 lớp</button><button data-c="backward">↓ Xuống 1 lớp</button><button data-c="front">⤒ Lên trên cùng</button><button data-c="back">⤓ Xuống dưới cùng</button><button data-c="del" class="danger">🗑 Xóa <kbd>Del</kbd></button></div><button id="focusExit" class="focusexit" hidden>✕ Thoát chế độ tập trung (F)</button>
+        <div id="floatBar" class="floatbar" role="toolbar" aria-label="Công cụ đối tượng" hidden><span id="fbText" class="fbgrp" hidden><select id="fbFont" title="Phông chữ"></select><input id="fbSize" type="number" min="4" max="2000" title="Cỡ chữ"><input id="fbColor" type="color" data-nopv title="Màu chữ"></span><span id="fbImg" class="fbgrp" hidden><button id="fbCrop" title="Cắt ảnh">✂ Cắt</button><button id="fbRmbg" title="Xóa nền (AI)">🪄 Xóa nền</button><button id="fbFilter" title="Bộ lọc &amp; chỉnh ảnh">🎛 Lọc</button></span><button id="dup" title="Nhân bản (Ctrl+D)">⧉</button><button id="del" title="Xóa (Delete)">🗑</button><button id="front" title="Lên trên cùng">⤒</button><button id="forward" title="Lên 1 lớp">↑</button><button id="backward" title="Xuống 1 lớp">↓</button><button id="back" title="Xuống dưới cùng">⤓</button><button id="group" title="Nhóm (Ctrl+G)">▣ Nhóm</button><button id="ungroup" title="Bỏ nhóm (Ctrl+Shift+G)">◫</button><button id="lock" title="Khóa/mở khóa (Ctrl+L)">🔒</button><select id="align" title="Căn chỉnh"><option value="">Căn chỉnh…</option><option value="left">Căn trái</option><option value="hcenter">Căn giữa ngang</option><option value="right">Căn phải</option><option value="top">Căn trên</option><option value="vcenter">Căn giữa dọc</option><option value="bottom">Căn dưới</option><option value="dh">Phân bố ngang</option><option value="dv">Phân bố dọc</option></select></div><div id="ctxMenu" class="ctxmenu" role="menu" hidden><button data-c="dup">⧉ Nhân bản <kbd>Ctrl+D</kbd></button><button data-c="lock">🔒 Khóa / mở khóa</button><button data-c="forward">↑ Lên 1 lớp</button><button data-c="backward">↓ Xuống 1 lớp</button><button data-c="front">⤒ Lên trên cùng</button><button data-c="back">⤓ Xuống dưới cùng</button><div class="ctxsub"><button id="ctxPick" aria-haspopup="menu">Chọn đối tượng ở đây <span>▸</span></button><div id="ctxPickList" class="ctxmenu ctxsublist" role="menu" hidden></div></div><button data-c="del" class="danger">🗑 Xóa <kbd>Del</kbd></button></div><button id="focusExit" class="focusexit" hidden>✕ Thoát chế độ tập trung (F)</button>
         <div class="zoombar" role="toolbar" aria-label="Thu phóng"><button id="zoomOut" title="Thu nhỏ (Ctrl+-)" aria-label="Thu nhỏ">−</button><span id="zoomPct" title="Mức thu phóng (lăn chuột để phóng to/thu nhỏ, giữ chuột phải/nút giữa hoặc Space + kéo để di chuyển, Shift + lăn để cuộn ngang)">100%</span><button id="zoomIn" title="Phóng to (Ctrl++)" aria-label="Phóng to">+</button><button id="zoomFit" title="Vừa khung (Ctrl+0)">Vừa khung</button><button id="zoom100" title="Kích thước thật (Ctrl+1)">100%</button><button id="rulerToggle" title="Thước đo">📏</button></div></div>
       <div class="pagesbar" id="pagesBar"><button id="pagesToggle" class="ptoggle" title="Thu gọn / mở thanh trang" aria-expanded="true">▾</button><span id="pagesLabel" class="small muted">Trang 1/1</span><button id="pageAdd" title="Thêm trang">＋ Trang</button><button id="pageDup" title="Nhân bản trang hiện tại">Nhân bản trang</button><button id="pageDel" title="Xóa trang">🗑</button><div id="pages" class="pages"></div></div>
       <div id="progress" class="progress" hidden><div></div><span></span></div>
     </div>
     <aside class="props">
-      <h4>Thuộc tính</h4>
-      <div id="propsBody"><p class="muted">Chọn một đối tượng để chỉnh sửa.</p></div>
-      <h4>Lớp</h4>
-      <ol id="layers" class="layers"></ol>
+      <div class="ptabs" role="tablist"><button id="ptabProps" role="tab" class="on" aria-selected="true">Thuộc tính</button><button id="ptabLayers" role="tab" aria-selected="false">Lớp <small id="layerCount"></small></button></div>
+      <div id="paneProps" class="ppane"><h4>Thuộc tính</h4>
+      <div id="propsBody"><p class="muted">Chọn một đối tượng để chỉnh sửa.</p></div></div>
+      <div id="paneLayers" class="ppane" hidden><h4>Lớp</h4><input id="layerSearch" type="search" placeholder="Tìm lớp theo tên…" aria-label="Tìm lớp">
+      <ol id="layers" class="layers lp" aria-label="Danh sách lớp"></ol><p class="small muted lhint">Kéo để đổi thứ tự · Shift/Ctrl+bấm chọn nhiều · Bấm đúp đổi tên · Alt+bấm trên canvas để chọn lớp bên dưới</p></div>
     </aside>
   </section>
 
@@ -255,6 +256,14 @@ Trần Thị Bình,Kế toán</textarea>
 </main>
 
 <!-- Export dialog -->
+<dialog id="fontDlg" aria-labelledby="fontDlgT"><h3 id="fontDlgT">🔤 Font của tôi</h3>
+<p class="small muted">Tải lên .ttf, .otf, .woff hoặc .woff2 (tối đa 10 MB). Font được lưu trong trình duyệt để dùng cả khi ngoại tuyến<span id="fontCloudNote"></span>.</p>
+<div class="row"><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"></div>
+<div class="row" id="fontNameRow" hidden><label>Tên font <input id="fontName" maxlength="60"></label><button id="fontAdd" class="primary">Thêm font</button></div>
+<p id="fontMsg" class="small" role="status"></p>
+<ul id="fontList" class="fontlist"></ul>
+<p class="small muted">⚖ Chỉ tải lên font bạn có quyền sử dụng (giấy phép cho phép nhúng/dùng trong thiết kế).</p>
+<div class="row" style="justify-content:flex-end"><button id="fontClose">Đóng</button></div></dialog>
 <dialog id="cloudDlg"><h3>☁ Tài khoản &amp; đồng bộ đám mây</h3><div id="cloudBody"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button id="cloudClose">Đóng</button></div></dialog>
 <dialog id="exportDlg">
   <h3>Xuất thiết kế</h3>
@@ -342,5 +351,6 @@ Trần Thị Bình,Kế toán</textarea>
 <script src="js/cloud.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/phase9.js"></script>
+<script src="js/phase10.js"></script>
 </body>
 </html>

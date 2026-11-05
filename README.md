@@ -146,3 +146,16 @@ Cách hoạt động:
 - **Bảng lệnh** `Ctrl+K` / `⌘K`: chuyển tab, thêm chữ/hình/ảnh, xuất PNG/JPG, lưu, hoàn tác/làm lại, chế độ tập trung, thu gọn bảng thuộc tính, đồng bộ, tài khoản và mở mẫu theo tên (thư viện + khổ trống). Tìm không dấu (`thiep cuoi` → “Thiệp cưới…”), ↑↓ + Enter, Esc đóng.
 - **Thu gọn bảng thuộc tính**: nút `»` ở góc bảng (`#propsCollapse`) và tab `«` ở mép canvas (`#propsExpand`) để mở lại; dùng chung trạng thái `xtk-panels` trong localStorage với `#toggleRight`/`Ctrl+]`; canvas tự vừa khung.
 - Mã: `js/phase9.js`, CSS cuối `css/app.css`; kiểm thử “P9 …” trong `tests/e2e.js`; ảnh chụp 49–54.
+
+## Phase 10 — Bảng Lớp, chọn đối tượng chồng nhau, font của tôi
+
+- **Tab “Lớp”** trong bảng bên phải (cạnh “Thuộc tính”): danh sách mọi đối tượng (trên cùng ở đầu), có ảnh thu nhỏ, biểu tượng loại và tên (chữ hiển thị đoạn trích; còn lại “Ảnh”, “Hình chữ nhật”…).
+  - Bấm để chọn, Shift/Ctrl+bấm để chọn nhiều; kéo-thả để đổi thứ tự lớp (1 bước hoàn tác).
+  - 👁 ẩn/hiện (lớp ẩn không được xuất ra file), 🔒 khóa (không chọn/di chuyển được trên canvas; bấm vào dòng đang khóa sẽ hiện nút “Mở khóa”).
+  - Bấm đúp để đổi tên (lưu trong JSON thiết kế qua `name` + `xtk.userName`), ô tìm kiếm không dấu, nhóm mở rộng xem lớp con (chỉ đọc).
+  - Tự cập nhật khi thêm/xóa/sửa/chọn; dựng lại có kiểm tra chữ ký nên chỉ đổi highlight khi cấu trúc không đổi; ảnh thu nhỏ tạo dần lúc rảnh (200 đối tượng < 250 ms).
+- **Alt+bấm** trên canvas: lần lượt chọn đối tượng nằm bên dưới con trỏ. Menu chuột phải có **“Chọn đối tượng ở đây ▸”** liệt kê mọi đối tượng tại điểm đó.
+- **＋ Tải font của tôi** (trong ô chọn font): nhận .ttf/.otf/.woff/.woff2 ≤ 10 MB, kiểm tra chữ ký file, nạp bằng FontFace API, lưu vào IndexedDB (DB `xuong-thiet-ke` v3, store mới `fonts` — nâng cấp chỉ thêm store) và đăng ký lại khi khởi động (dùng được ngoại tuyến).
+  - Tên font lấy từ tên file, sửa được; danh sách quản lý có nút xóa; cảnh báo nếu font thiếu dấu tiếng Việt (đo “ệ ữ ở” với font dự phòng); nhắc người dùng chỉ tải font mình có quyền dùng.
+  - Thiết kế lưu danh sách `customFonts`; khi mở thiết kế thiếu font sẽ có thông báo nhẹ.
+  - Khi đăng nhập: đồng bộ riêng tư vào Storage `user-fonts/{user_id}/<sha256>.<ext>` + bảng `user_fonts` (RLS chỉ chủ sở hữu). **Cần chạy `supabase/fonts.sql`** trên dự án Supabase để bật; nếu chưa chạy, ứng dụng tự bỏ qua đồng bộ, font vẫn lưu cục bộ.

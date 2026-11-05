@@ -315,6 +315,7 @@
   });
   function label(o) { return o.name && !/^(Tiêu đề|Đoạn văn)$/.test(o.name) ? o.name : (o.text ? '“' + o.text.slice(0, 22) + '”' : o.type); }
   function refreshLayers() {
+    if (window.XTK_LAYERS) return window.XTK_LAYERS.refresh();
     const ul = $('#layers'); ul.innerHTML = ''; const act = canvas.getActiveObjects();
     canvas.getObjects().filter(o => o.name !== '__bg').reverse().forEach(o => {
       const li = document.createElement('li'); li.textContent = (o.xtk?.locked ? '🔒 ' : '') + label(o); if (act.includes(o)) li.className = 'sel';
