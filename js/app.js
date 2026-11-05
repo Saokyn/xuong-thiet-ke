@@ -416,12 +416,61 @@
   $('#exportBtn').onclick = () => doExport($('#exportFmt').value, +$('#exportScale').value);
 
   // ---------- AI panel
-  const s = AI.settings(); $('#aiModel').value = s.model;
-  if (s.hasKey) $('#aiKey').placeholder = '•••••• (đã lưu trên thiết bị)';
+  function fillModelSelect(sel, catalog, extras, current, groupsFirst) {
+    const by = {};
+    for (const m of catalog) (by[m.group] || (by[m.group] = [])).push(m);
+    const order = groupsFirst || Object.keys(by);
+    sel.innerHTML = '';
+    for (const g of order) {
+      if (!by[g]?.length) continue;
+      const og = document.createElement('optgroup'); og.label = g;
+      for (const m of by[g]) { const o = document.createElement('option'); o.value = m.id; o.textContent = m.label + (m.note ? ' (' + m.note + ')' : ''); og.appendChild(o); }
+      sel.appendChild(og);
+    }
+    const known = new Set(catalog.map(m => m.id));
+    const extra = (extras || []).filter(id => !known.has(id));
+    if (extra.length) {
+      const og = document.createElement('optgroup'); og.label = 'Từ API (generateContent)';
+      for (const id of extra) { const o = document.createElement('option'); o.value = id; o.textContent = id; og.appendChild(o); }
+      sel.appendChild(og);
+    }
+    if (current && ![...sel.options].some(o => o.value === current)) {
+      const o = document.createElement('option'); o.value = current; o.textContent = current + ' (đã lưu)'; sel.appendChild(o);
+    }
+    if (current) sel.value = current;
+  }
+  function refreshAIModelUI() {
+    const s = AI.settings();
+    fillModelSelect($('#aiModel'), AI.CATALOG, s.extras, s.model, ['Mới nhất', 'Free cao / Nhanh', 'Ổn định', 'Chất lượng']);
+    fillModelSelect($('#aiImgModel'), AI.IMG_CATALOG, s.extraImgs, s.imgModel, ['Mới nhất', 'Nhanh', 'Ổn định', 'Chất lượng']);
+    $('#aiModelCustom').value = '';
+    $('#aiImgModelCustom').value = '';
+    if (s.hasKey) $('#aiKey').placeholder = '•••••• (đã lưu trên thiết bị)';
+  }
+  refreshAIModelUI();
   $('#toggleAI').onclick = () => { $('#aiPanel').hidden = !$('#aiPanel').hidden; };
   $('#closeAI').onclick = () => { $('#aiPanel').hidden = true; };
-  $('#aiSaveKey').onclick = () => { AI.save({ model: $('#aiModel').value, key: $('#aiKey').value.trim() }); $('#aiKey').value = ''; $('#aiKey').placeholder = AI.settings().hasKey ? '•••••• (đã lưu trên thiết bị)' : 'Dán Gemini API key của bạn'; toast('Đã lưu cài đặt Gemini trên thiết bị này'); };
+  $('#aiSaveKey').onclick = () => {
+    const model = ($('#aiModelCustom').value.trim() || $('#aiModel').value).trim();
+    const imgModel = ($('#aiImgModelCustom')?.value.trim() || $('#aiImgModel').value).trim();
+    AI.save({ model, imgModel, key: $('#aiKey').value.trim() });
+    $('#aiKey').value = '';
+    $('#aiKey').placeholder = AI.settings().hasKey ? '•••••• (đã lưu trên thiết bị)' : 'Dán Gemini API key của bạn';
+    refreshAIModelUI();
+    toast('Đã lưu cài đặt Gemini trên thiết bị này');
+  };
   $('#aiClearKey').onclick = () => { AI.clearKey(); $('#aiKey').placeholder = 'Dán Gemini API key của bạn'; toast('Đã xóa Gemini API key'); };
+  $('#aiLoadModels').onclick = async () => {
+    const st = $('#aiLoadStatus'); st.textContent = 'Đang tải danh sách model…';
+    $('#aiLoadModels').disabled = true;
+    try {
+      const r = await AI.listModels();
+      refreshAIModelUI();
+      st.textContent = `Đã tải ${r.all.length} model hỗ trợ generateContent (+${r.textExtra.length} văn bản, +${r.imgExtra.length} ảnh mới).`;
+      toast('Đã cập nhật danh sách model Gemini');
+    } catch (e) { st.textContent = e.message; }
+    finally { $('#aiLoadModels').disabled = false; }
+  };
   $('#aiGo').onclick = async () => {
     const q = $('#aiPrompt').value.trim(); if (!q) return toast('Hãy mô tả ý tưởng của bạn');
     $('#aiStatus').textContent = 'Đang tạo ý tưởng…'; $('#aiGo').disabled = true;

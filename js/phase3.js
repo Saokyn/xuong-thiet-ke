@@ -190,10 +190,13 @@ Prompt ảnh bằng tiếng Anh; nếu có người chỉ là người lớn hư
   canvas.on('selection:created', e => { const o = e.selected?.[0]; if (o?.xtk?.aiPrompt && !$('#aiImgQ').value) $('#aiImgQ').value = o.xtk.aiPrompt; });
 
   // ================= 3. AI image generation (with policy checks)
-  const IMG_K = 'xtk.ai.imgModel', IMG_DEF = AI.IMG_MODEL || 'gemini-2.5-flash-image';
+  const IMG_K = 'xtk.ai.imgModel', IMG_DEF = (AI.DEFAULTS && AI.DEFAULTS.imgModel) || AI.IMG_MODEL || 'gemini-nano-banana-2.1';
   (function () { const cur = localStorage.getItem(IMG_K) || ''; if (/grok/i.test(cur) || !cur) localStorage.setItem(IMG_K, IMG_DEF); })();
-  $('#aiImgModel').value = localStorage.getItem(IMG_K) || IMG_DEF;
-  $('#aiImgModel').onchange = () => localStorage.setItem(IMG_K, $('#aiImgModel').value.trim() || IMG_DEF);
+  // Select is filled by app.js refreshAIModelUI; keep onchange to persist picks from the image tab.
+  $('#aiImgModel').onchange = () => {
+    const v = ($('#aiImgModelCustom')?.value.trim() || $('#aiImgModel').value.trim() || IMG_DEF);
+    localStorage.setItem(IMG_K, v); AI.save({ imgModel: v });
+  };
   const POLICY = 'Safety rules: any person shown must be a fictional adult clearly aged 25 or older; never depict real people, celebrities, politicians or look-alikes; no nudity or sexual or suggestive content; no children or minors.';
   const IMG_SYS = `[XTK:imgprompt] You write image-generation prompts in ENGLISH for a Vietnamese design studio. ${POLICY}
 If the request violates these rules, rewrite it into a safe alternative. Reply ONLY with JSON: {"prompt":"<English prompt, max 400 chars>"}.`;

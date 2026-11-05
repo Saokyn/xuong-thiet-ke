@@ -100,7 +100,7 @@
         <label class="small">Mở rộng ảnh <select id="itExpPct"><option value="0.25">25%</option><option value="0.5">50%</option></select></label>
         <div class="row"><button id="itExpLocal">📴 Mở rộng (phản chiếu + mờ)</button><button id="itExpAI">🌐🔑 Mở rộng bằng AI</button></div>
         <input id="itExpPrompt" placeholder="Prompt mở rộng (tiếng Anh, tùy chọn)">
-        <p class="small muted">“Mở rộng bằng AI” gọi Gemini (<code>gemini-2.5-flash-image</code>). Nếu không khả dụng, ứng dụng tự chuyển sang cách mở rộng trên máy.</p>
+        <p class="small muted">“Mở rộng bằng AI” gọi model ảnh Gemini đã chọn (Nano Banana). Nếu không khả dụng, ứng dụng tự chuyển sang cách mở rộng trên máy.</p>
         <h4>Khung ảnh</h4>
         <div id="frameList" class="iconlist"></div>
         <h4>Lưới ghép ảnh (collage)</h4>
@@ -291,16 +291,16 @@ Trần Thị Bình,Kế toán</textarea>
   <div class="aihead"><h3>✨ Ý tưởng AI</h3><button id="closeAI">✕</button></div>
   <details id="aiSettings">
     <summary>Cài đặt API (khóa chỉ lưu trên thiết bị này)</summary>
-    <label>Model
-      <select id="aiModel">
-        <option value="gemini-2.5-flash" selected>gemini-2.5-flash (mặc định)</option>
-        <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-      </select>
+    <label>Model văn bản (Gemini)
+      <select id="aiModel"></select>
     </label>
+    <label class="small">ID model tùy chỉnh<input id="aiModelCustom" autocomplete="off" placeholder="VD: gemini-3.8-flash"></label>
+    <div class="row"><button type="button" id="aiLoadModels">Tải danh sách model</button></div>
+    <p id="aiLoadStatus" class="muted small"></p>
     <label>Gemini API key
       <input id="aiKey" type="password" autocomplete="off" placeholder="Dán Gemini API key của bạn">
     </label>
-    <p class="muted small">Lấy khóa tại <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Khóa chỉ lưu trong localStorage trên thiết bị này và chỉ gửi tới Google Gemini.</p>
+    <p class="muted small">Lấy khóa tại <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Khóa chỉ lưu trong localStorage trên thiết bị này và chỉ gửi tới Google Gemini. Danh sách model gợi ý theo tài liệu Gemini API (2026); bấm “Tải danh sách model” để bổ sung model mới hỗ trợ <code>generateContent</code>.</p>
     <div class="row"><button id="aiSaveKey">Lưu cài đặt</button><button id="aiClearKey">Xóa khóa</button></div>
   </details>
   <div class="aitabs"><button data-ai="idea" class="on">Ý tưởng</button><button data-ai="copy">Viết quảng cáo</button><button data-ai="design">Thiết kế từ mô tả</button><button data-ai="image">Tạo ảnh</button></div>
@@ -315,7 +315,7 @@ Trần Thị Bình,Kế toán</textarea>
     <button id="aiDesignGo" class="primary">Tạo thiết kế</button><div id="aiDesignStatus" class="muted small"></div>
   </div>
   <div class="aisec" data-ai="image" hidden>
-    <label class="small">Model ảnh<select id="aiImgModel"><option value="gemini-2.5-flash-image" selected>gemini-2.5-flash-image</option></select></label>
+    <label class="small">Model ảnh<select id="aiImgModel"></select></label><label class="small">ID model ảnh tùy chỉnh<input id="aiImgModelCustom" autocomplete="off" placeholder="VD: gemini-nano-banana-2.1"></label>
     <label>Prompt (tiếng Anh)<textarea id="aiImgQ" rows="3" placeholder="A cup of iced coffee on a wooden table, morning light"></textarea></label>
     <div class="row"><button id="aiImgRefine">✍️ Viết prompt từ mô tả tiếng Việt</button><button id="aiImgGo" class="primary">🎨 Tạo ảnh</button></div>
     <p class="muted small">Chỉ cho phép người lớn hư cấu từ 25 tuổi trở lên; không người thật/người nổi tiếng, không nội dung tình dục, không trẻ em. Prompt phải bằng tiếng Anh.</p>

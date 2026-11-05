@@ -1,10 +1,29 @@
 // AI via Google Gemini. API key lives only in localStorage and is sent only to generativelanguage.googleapis.com (never logged).
 const AI = (() => {
-  const K = { model: 'xtk.ai.model', key: 'xtk.ai.key' };
+  const K = { model: 'xtk.ai.model', key: 'xtk.ai.key', img: 'xtk.ai.imgModel', extra: 'xtk.ai.extraModels', extraImg: 'xtk.ai.extraImgModels' };
   const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
-  const MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro'];
-  const DEFAULTS = { model: 'gemini-2.5-flash' };
-  const IMG_MODEL = 'gemini-2.5-flash-image';
+  // Curated generateContent text models confirmed in official docs (Nov 2026). Sources:
+  // https://ai.google.dev/gemini-api/docs/models , pricing, rate-limits, image-generation.
+  const CATALOG = [
+    { id: 'gemini-3.8-flash', group: 'Mới nhất', note: 'Mới nhất · Ổn định · Free', label: 'gemini-3.8-flash — Flash mới nhất' },
+    { id: 'gemini-3.5-flash-lite', group: 'Free cao / Nhanh', note: 'Nhanh · Free cao', label: 'gemini-3.5-flash-lite — Nhanh, free cao (mặc định)' },
+    { id: 'gemini-3.6-flash', group: 'Ổn định', note: 'Ổn định', label: 'gemini-3.6-flash — Flash ổn định' },
+    { id: 'gemini-3.1-flash-lite', group: 'Free cao / Nhanh', note: 'Nhanh · Free', label: 'gemini-3.1-flash-lite — Nhanh, có free' },
+    { id: 'gemini-2.5-flash', group: 'Ổn định', note: 'Ổn định · Free', label: 'gemini-2.5-flash — Ổn định 2.5' },
+    { id: 'gemini-2.5-flash-lite', group: 'Free cao / Nhanh', note: 'Nhanh · Free', label: 'gemini-2.5-flash-lite — Rất nhanh / tiết kiệm' },
+    { id: 'gemini-2.5-pro', group: 'Chất lượng', note: 'Pro · Free', label: 'gemini-2.5-pro — Pro, suy luận sâu' },
+  ];
+  const IMG_CATALOG = [
+    { id: 'gemini-nano-banana-2.1', group: 'Mới nhất', note: 'Mới nhất', label: 'gemini-nano-banana-2.1 — Nano Banana 2.1 (mặc định)' },
+    { id: 'gemini-3.1-flash-image', group: 'Ổn định', note: 'Ổn định', label: 'gemini-3.1-flash-image — Nano Banana 2' },
+    { id: 'gemini-3.1-flash-lite-image', group: 'Nhanh', note: 'Nhanh', label: 'gemini-3.1-flash-lite-image — Nhanh / rẻ' },
+    { id: 'gemini-3-pro-image', group: 'Chất lượng', note: 'Chất lượng', label: 'gemini-3-pro-image — Nano Banana Pro' },
+    { id: 'gemini-2.5-flash-image', group: 'Ổn định', note: 'Legacy', label: 'gemini-2.5-flash-image — Legacy Nano Banana' },
+  ];
+  const MODELS = CATALOG.map(m => m.id);
+  const IMG_MODELS = IMG_CATALOG.map(m => m.id);
+  const DEFAULTS = { model: 'gemini-3.5-flash-lite', imgModel: 'gemini-nano-banana-2.1' };
+  const IMG_MODEL = DEFAULTS.imgModel; // alias for callers
   const SYSTEM = `Bạn là giám đốc sáng tạo cho một xưởng thiết kế đồ họa Việt Nam.
 Trả lời CHỈ bằng một đối tượng JSON hợp lệ (không markdown) với các khóa:
 "brief" (string, tiếng Việt), "layout" (string, tiếng Việt, mô tả bố cục cụ thể theo kích thước đã cho),
@@ -18,33 +37,42 @@ QUY TẮC BẮT BUỘC cho image_prompts:
 - Không có trẻ em hoặc trẻ vị thành niên.
 Nếu yêu cầu người dùng vi phạm các quy tắc trên, hãy thay bằng một ý tưởng an toàn và nêu lý do ngắn trong "brief".`;
 
+  const okId = s => typeof s === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$/.test(s.trim());
+  const readExtras = (k) => { try { return JSON.parse(localStorage.getItem(k) || '[]').filter(okId); } catch (e) { return []; } };
+  const writeExtras = (k, arr) => localStorage.setItem(k, JSON.stringify([...new Set(arr.filter(okId))].slice(0, 80)));
+
   // One-time migrate off Grok/xAI: drop old base URL, grok models, and the old provider key.
+  // Also migrate previous default gemini-2.5-flash → new free/fast default only when still at the old default.
   (function migrateFromGrok() {
     try {
       const base = localStorage.getItem('xtk.ai.base') || '';
       const model = localStorage.getItem(K.model) || '';
-      const img = localStorage.getItem('xtk.ai.imgModel') || '';
+      const img = localStorage.getItem(K.img) || '';
       const wasGrok = /x\.ai|grok/i.test(base + ' ' + model + ' ' + img);
       localStorage.removeItem('xtk.ai.base');
       if (wasGrok) {
         localStorage.removeItem(K.key);
-        if (/grok/i.test(model) || !MODELS.includes(model)) localStorage.removeItem(K.model);
-        if (/grok/i.test(img)) localStorage.removeItem('xtk.ai.imgModel');
-      } else if (model && !MODELS.includes(model)) {
-        localStorage.removeItem(K.model);
+        if (/grok/i.test(model)) localStorage.removeItem(K.model);
+        if (/grok/i.test(img)) localStorage.removeItem(K.img);
       }
     } catch (e) {}
   })();
 
-  const settings = () => ({
-    model: MODELS.includes(localStorage.getItem(K.model)) ? localStorage.getItem(K.model) : DEFAULTS.model,
-    hasKey: !!localStorage.getItem(K.key),
-    endpoint: ENDPOINT,
-    imgModel: IMG_MODEL,
-  });
-  function save({ model, key }) {
-    const m = MODELS.includes(model) ? model : DEFAULTS.model;
-    localStorage.setItem(K.model, m);
+  const settings = () => {
+    const model = localStorage.getItem(K.model);
+    const imgModel = localStorage.getItem(K.img);
+    return {
+      model: okId(model) ? model.trim() : DEFAULTS.model,
+      imgModel: okId(imgModel) ? imgModel.trim() : DEFAULTS.imgModel,
+      hasKey: !!localStorage.getItem(K.key),
+      endpoint: ENDPOINT,
+      extras: readExtras(K.extra),
+      extraImgs: readExtras(K.extraImg),
+    };
+  };
+  function save({ model, imgModel, key }) {
+    if (okId(model)) localStorage.setItem(K.model, model.trim());
+    if (okId(imgModel)) localStorage.setItem(K.img, imgModel.trim());
     if (key) localStorage.setItem(K.key, key);
   }
   const clearKey = () => localStorage.removeItem(K.key);
@@ -65,6 +93,8 @@ Nếu yêu cầu người dùng vi phạm các quy tắc trên, hãy thay bằng
     const code = res.status;
     const msg = (data && data.error && data.error.message) || '';
     const status = (data && data.error && data.error.status) || '';
+    if (code === 404 || /not found|NOT_FOUND|is not found|does not exist|unsupported/i.test(msg + status))
+      return new Error('Model không tồn tại hoặc không hỗ trợ generateContent. Hãy chọn model khác, nhập ID tùy chỉnh, hoặc bấm “Tải danh sách model”.');
     if (code === 401 || code === 403 || /API[_ ]?key|PERMISSION|UNAUTHENTICATED|invalid/i.test(msg + status))
       return new Error('Khóa API Gemini không hợp lệ hoặc đã bị thu hồi. Lấy khóa mới tại Google AI Studio.');
     if (code === 429 || /RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg + status))
@@ -101,7 +131,36 @@ Nếu yêu cầu người dùng vi phạm các quy tắc trên, hãy thay bằng
     return data;
   }
 
-  // Chat-style JSON call. Key is sent only via x-goog-api-key to Google Gemini.
+  // List models supporting generateContent (GET /v1beta/models). Never logs the key.
+  async function listModels() {
+    const key = needKey();
+    const out = []; let pageToken = '';
+    do {
+      const url = ENDPOINT + '?pageSize=100' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+      const res = await fetch(url, { headers: { 'x-goog-api-key': key } });
+      let data = null; try { data = await res.json(); } catch (e) { data = null; }
+      if (!res.ok) throw mapError(res, data);
+      for (const m of (data.models || [])) {
+        const methods = m.supportedGenerationMethods || m.supported_generation_methods || [];
+        if (!methods.includes('generateContent')) continue;
+        const id = String(m.name || '').replace(/^models\//, '');
+        if (!okId(id)) continue;
+        out.push({ id, displayName: m.displayName || m.display_name || id, methods });
+      }
+      pageToken = data.nextPageToken || data.next_page_token || '';
+    } while (pageToken && out.length < 200);
+    const known = new Set([...MODELS, ...IMG_MODELS]);
+    const textExtra = [], imgExtra = [];
+    for (const m of out) {
+      if (known.has(m.id)) continue;
+      if (/image|banana|imagen/i.test(m.id + ' ' + (m.displayName || ''))) imgExtra.push(m.id);
+      else textExtra.push(m.id);
+    }
+    writeExtras(K.extra, [...readExtras(K.extra), ...textExtra]);
+    writeExtras(K.extraImg, [...readExtras(K.extraImg), ...imgExtra]);
+    return { all: out, textExtra, imgExtra };
+  }
+
   async function chat(system, user, temperature = 0.8) {
     const { model } = settings();
     const data = await generateContent(model, {
@@ -119,7 +178,6 @@ Nếu yêu cầu người dùng vi phạm các quy tắc trên, hãy thay bằng
     return out;
   }
 
-  // Image generation / edit via Gemini image model (Nano Banana). Returns a data: URL.
   async function generateImage({ prompt, imageDataUrl, mimeType }) {
     const parts = [];
     if (imageDataUrl) {
@@ -128,7 +186,8 @@ Nếu yêu cầu người dùng vi phạm các quy tắc trên, hãy thay bằng
       parts.push({ inlineData: { mimeType: mimeType || m[1], data: m[2] } });
     }
     parts.push({ text: prompt });
-    const data = await generateContent(IMG_MODEL, {
+    const model = settings().imgModel || DEFAULTS.imgModel;
+    const data = await generateContent(model, {
       contents: [{ role: 'user', parts }],
       generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
     });
@@ -144,6 +203,9 @@ Nếu yêu cầu người dùng vi phạm các quy tắc trên, hãy thay bằng
     throw new Error('Gemini không trả về ảnh');
   }
 
-  return { settings, save, clearKey, generate, chat, needKey, parseJSON, generateContent, generateImage, SYSTEM, K, MODELS, DEFAULTS, ENDPOINT, IMG_MODEL };
+  return {
+    settings, save, clearKey, generate, chat, needKey, parseJSON, generateContent, generateImage, listModels,
+    SYSTEM, K, MODELS, IMG_MODELS, CATALOG, IMG_CATALOG, DEFAULTS, ENDPOINT, IMG_MODEL, okId,
+  };
 })();
 window.AI = AI;
