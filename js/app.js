@@ -416,12 +416,12 @@
   $('#exportBtn').onclick = () => doExport($('#exportFmt').value, +$('#exportScale').value);
 
   // ---------- AI panel
-  const s = AI.settings(); $('#aiBase').value = s.base; $('#aiModel').value = s.model;
+  const s = AI.settings(); $('#aiModel').value = s.model;
   if (s.hasKey) $('#aiKey').placeholder = '•••••• (đã lưu trên thiết bị)';
   $('#toggleAI').onclick = () => { $('#aiPanel').hidden = !$('#aiPanel').hidden; };
   $('#closeAI').onclick = () => { $('#aiPanel').hidden = true; };
-  $('#aiSaveKey').onclick = () => { AI.save({ base: $('#aiBase').value.trim(), model: $('#aiModel').value.trim(), key: $('#aiKey').value.trim() }); $('#aiKey').value = ''; $('#aiKey').placeholder = AI.settings().hasKey ? '•••••• (đã lưu trên thiết bị)' : 'Dán API key của bạn'; toast('Đã lưu cài đặt AI trên thiết bị này'); };
-  $('#aiClearKey').onclick = () => { AI.clearKey(); $('#aiKey').placeholder = 'Dán API key của bạn'; toast('Đã xóa API key'); };
+  $('#aiSaveKey').onclick = () => { AI.save({ model: $('#aiModel').value, key: $('#aiKey').value.trim() }); $('#aiKey').value = ''; $('#aiKey').placeholder = AI.settings().hasKey ? '•••••• (đã lưu trên thiết bị)' : 'Dán Gemini API key của bạn'; toast('Đã lưu cài đặt Gemini trên thiết bị này'); };
+  $('#aiClearKey').onclick = () => { AI.clearKey(); $('#aiKey').placeholder = 'Dán Gemini API key của bạn'; toast('Đã xóa Gemini API key'); };
   $('#aiGo').onclick = async () => {
     const q = $('#aiPrompt').value.trim(); if (!q) return toast('Hãy mô tả ý tưởng của bạn');
     $('#aiStatus').textContent = 'Đang tạo ý tưởng…'; $('#aiGo').disabled = true;

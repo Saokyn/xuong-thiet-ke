@@ -32,12 +32,13 @@ Static PWA. Serve: `python3 -m http.server 8765` then open http://localhost:8765
 
 **Kho ảnh** (tab *Kho ảnh*, cần Internet): Openverse (không cần khóa), Pexels và Unsplash (tùy chọn, bạn tự dán khóa API). Mỗi ảnh chèn vào lưu thông tin tác giả/giấy phép (`xtk.credit`), có tùy chọn chèn dòng “Ảnh: …” lên trang. Hãy tuân thủ giấy phép từng ảnh (Openverse: CC/PD; Pexels/Unsplash: giấy phép riêng của họ, Unsplash yêu cầu ghi công & theo dõi lượt tải; ứng dụng gọi endpoint download khi chèn).
 
-**Ý tưởng AI** (cần Internet + khóa, dùng chung cài đặt API OpenAI-compatible; mặc định xAI):
+**Ý tưởng AI** (cần Internet + **Gemini API key**; khóa chỉ lưu trên thiết bị, lấy tại [Google AI Studio](https://aistudio.google.com/apikey)):
+- Model văn bản: `gemini-2.5-flash` (mặc định) hoặc `gemini-2.5-pro`, gọi REST `generateContent` (`systemInstruction` + `responseMimeType: application/json` khi cần JSON).
 - *Viết quảng cáo*: tiêu đề/caption/hashtag, bấm để chèn.
 - *Thiết kế từ mô tả*: AI trả về JSON → được kiểm tra (chỉ các loại đối tượng/phông được phép, giới hạn tọa độ, màu hex, bỏ HTML) → dựng thành đối tượng Fabric, có ô “Ô ảnh AI”.
-- *Tạo ảnh*: endpoint `/images/generations` (model chỉnh được, mặc định `grok-2-image`). Chính sách an toàn nằm **cả** trong system prompt **và** kiểm tra phía máy: chỉ người lớn hư cấu từ 25 tuổi, không người thật/người nổi tiếng, không nội dung tình dục, không trẻ em. Prompt ảnh phải bằng tiếng Anh (có nút viết prompt từ mô tả tiếng Việt).
+- *Tạo ảnh*: Gemini `gemini-2.5-flash-image` qua `generateContent` (responseModalities TEXT+IMAGE). Chính sách an toàn nằm **cả** trong system prompt **và** kiểm tra phía máy: chỉ người lớn hư cấu từ 25 tuổi, không người thật/người nổi tiếng, không nội dung tình dục, không trẻ em. Prompt ảnh phải bằng tiếng Anh (có nút viết prompt từ mô tả tiếng Việt).
 
-**Công cụ ảnh** (tab Ảnh): Phóng to 2×/4× (trên máy), Xóa vật thể (đánh dấu vùng → vá ảnh trên máy), Mở rộng ảnh (trên máy: phản chiếu + làm mờ; hoặc AI qua `/images/edits` — nếu nhà cung cấp không hỗ trợ sẽ tự lùi về cách trên máy).
+**Công cụ ảnh** (tab Ảnh): Phóng to 2×/4× (trên máy), Xóa vật thể (đánh dấu vùng → vá ảnh trên máy), Mở rộng ảnh (trên máy: phản chiếu + làm mờ; hoặc AI qua Gemini image — nếu không khả dụng sẽ tự lùi về cách trên máy).
 
 **Mẫu cộng đồng** (tab *Cộng đồng*): đọc `community/index.json` (đổi URL trong tab). Mẫu được làm sạch trước khi mở (chỉ loại đối tượng Fabric an toàn, ảnh chỉ `data:`/https).
 Đóng góp mẫu qua Pull Request:
@@ -48,9 +49,9 @@ Static PWA. Serve: `python3 -m http.server 8765` then open http://localhost:8765
 
 **Hoạt ảnh** (tab *Hoạt ảnh*): hiệu ứng xuất hiện cho từng đối tượng (mờ dần, trượt, thu phóng, bật nảy), độ trễ/thời lượng, tự động, xem trước; xuất **WebM** (MediaRecorder) và **GIF** (gifenc, kèm sẵn) hoàn toàn trên máy.
 
-**Quyền riêng tư khóa API**: mọi khóa do bạn nhập, chỉ lưu trong `localStorage` của trình duyệt này, chỉ gửi tới nhà cung cấp bạn chọn; không ghi log. Service worker **không** lưu đệm bất kỳ lệnh gọi API nào (AI, ảnh, kho ảnh).
+**Quyền riêng tư khóa API**: Gemini API key và khóa kho ảnh chỉ lưu trong `localStorage` của trình duyệt này, chỉ gửi tới Google Gemini / Pexels / Unsplash; không ghi log, không đồng bộ. Service worker **không** lưu đệm bất kỳ lệnh gọi API nào (AI, ảnh, kho ảnh).
 
-**Kiểm thử**: mọi API mạng (xAI, Openverse, Pexels) được giả lập bằng `page.route`; test kiểm tra 0 lỗi console và 0 yêu cầu ra ngoài.
+**Kiểm thử**: mọi API mạng (Google Gemini, Openverse, Pexels) được giả lập bằng `page.route`; test kiểm tra 0 lỗi console và 0 yêu cầu ra ngoài.
 
 ## Giai đoạn 4
 - Ảnh chèn vào (tải lên, kéo-thả, dán, kho ảnh, ảnh AI, thành phần) luôn nằm giữa trang, vừa ~80% khung, không phóng to quá kích thước gốc (trừ ảnh rất nhỏ).
@@ -136,7 +137,7 @@ Cách hoạt động:
 - Khi sửa thiết kế của người dùng, quản trị viên không thêm được ảnh *mới* vào thư mục Storage của người đó; ảnh đã có vẫn giữ nguyên.
 - Ảnh trong mẫu chung được nhúng dạng data URL, vì bucket là riêng tư, nên mẫu lớn sẽ nặng.
 - Bộ nhớ tạm `localStorage` có giới hạn dung lượng. Khi đầy, ảnh thu nhỏ của mẫu chung sẽ bị bỏ.
-- Khóa AI không bao giờ được đồng bộ.
+- Khóa Gemini / kho ảnh không bao giờ được đồng bộ.
 
 ## Phase 9 — Header gọn, thanh thông tin, bảng lệnh (Ctrl+K)
 

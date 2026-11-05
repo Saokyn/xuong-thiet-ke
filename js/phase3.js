@@ -190,7 +190,8 @@ Prompt ảnh bằng tiếng Anh; nếu có người chỉ là người lớn hư
   canvas.on('selection:created', e => { const o = e.selected?.[0]; if (o?.xtk?.aiPrompt && !$('#aiImgQ').value) $('#aiImgQ').value = o.xtk.aiPrompt; });
 
   // ================= 3. AI image generation (with policy checks)
-  const IMG_K = 'xtk.ai.imgModel', IMG_DEF = 'grok-2-image';
+  const IMG_K = 'xtk.ai.imgModel', IMG_DEF = AI.IMG_MODEL || 'gemini-2.5-flash-image';
+  (function () { const cur = localStorage.getItem(IMG_K) || ''; if (/grok/i.test(cur) || !cur) localStorage.setItem(IMG_K, IMG_DEF); })();
   $('#aiImgModel').value = localStorage.getItem(IMG_K) || IMG_DEF;
   $('#aiImgModel').onchange = () => localStorage.setItem(IMG_K, $('#aiImgModel').value.trim() || IMG_DEF);
   const POLICY = 'Safety rules: any person shown must be a fictional adult clearly aged 25 or older; never depict real people, celebrities, politicians or look-alikes; no nudity or sexual or suggestive content; no children or minors.';
@@ -214,15 +215,7 @@ If the request violates these rules, rewrite it into a safe alternative. Reply O
   async function refinePrompt(desc) { const r = await AI.chat(IMG_SYS, desc, 0.6); const p = str(r?.prompt, 400); const bad = checkImagePrompt(p); if (bad) throw new Error('Prompt AI bị chặn: ' + bad); return p; }
   async function genImage(prompt) {
     const bad = checkImagePrompt(prompt); if (bad) throw new Error(bad);
-    const key = AI.needKey(), { base } = AI.settings(), model = $('#aiImgModel').value.trim() || IMG_DEF;
-    const body = { model, prompt: prompt + '\n\n' + POLICY, n: 1 };
-    if (!/^gpt-image/.test(model)) body.response_format = 'b64_json';
-    const res = await fetch(base + '/images/generations', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key }, body: JSON.stringify(body) });
-    if (!res.ok) throw new Error('Lỗi API ảnh: HTTP ' + res.status + (res.status === 404 ? ' (nhà cung cấp không hỗ trợ tạo ảnh)' : ''));
-    const d = await res.json(), it = d.data?.[0] || {};
-    if (it.b64_json && /^[A-Za-z0-9+/=\s]+$/.test(it.b64_json)) return 'data:image/png;base64,' + it.b64_json.replace(/\s/g, '');
-    if (safeUrl(it.url)) return fetchAsDataURL(it.url);
-    throw new Error('Phản hồi ảnh không hợp lệ');
+    return AI.generateImage({ prompt: prompt + '\n\n' + POLICY });
   }
   $('#aiImgRefine').onclick = () => { const q = $('#aiImgQ').value.trim(); if (!q) return toast('Nhập mô tả'); busy('#aiImgRefine', '#aiImgStatus', 'Đang viết prompt tiếng Anh…', async () => { $('#aiImgQ').value = await refinePrompt(q); $('#aiImgStatus').textContent = 'Đã viết prompt. Bấm “Tạo ảnh”.'; }); };
   $('#aiImgGo').onclick = () => busy('#aiImgGo', '#aiImgStatus', 'Đang tạo ảnh…', async () => {
@@ -349,18 +342,14 @@ If the request violates these rules, rewrite it into a safe alternative. Reply O
     let result = null, how = 'trên thiết bị';
     if (useAI) {
       try {
-        const key = AI.needKey(), { base } = AI.settings(), w = el.naturalWidth || el.width, h = el.naturalHeight || el.height;
+        const w = el.naturalWidth || el.width, h = el.naturalHeight || el.height;
         const s = Math.min(1, 1024 / (Math.max(w, h) * (1 + 2 * p))), W = Math.round(w * (1 + 2 * p) * s), Hh = Math.round(h * (1 + 2 * p) * s);
         const c = mkCanvas(W, Hh); c.getContext('2d').drawImage(el, Math.round(w * p * s), Math.round(h * p * s), Math.round(w * s), Math.round(h * s));
-        const fd = new FormData(); fd.append('image', await new Promise(r => c.toBlob(r, 'image/png')), 'image.png');
         const extra = ($('#itExpPrompt').value || '').trim(); const bad = extra && checkImagePrompt(extra); if (bad) throw new Error(bad);
-        fd.append('prompt', 'Extend the scene naturally into the transparent border, matching style and lighting. ' + extra + ' ' + POLICY);
-        fd.append('model', $('#aiImgModel').value.trim() || IMG_DEF); fd.append('n', '1');
-        const stop = X.prog.fake('Đang chờ AI mở rộng ảnh'); let res;
-        try { res = await fetch(base + '/images/edits', { method: 'POST', headers: { Authorization: 'Bearer ' + key }, body: fd }); } finally { stop(); }
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const d = await res.json(), it = d.data?.[0] || {};
-        const url = it.b64_json ? 'data:image/png;base64,' + it.b64_json : safeUrl(it.url) ? await fetchAsDataURL(it.url) : null; if (!url) throw new Error('phản hồi không hợp lệ');
+        const prompt = 'Extend the scene naturally into the transparent border, matching style and lighting. ' + extra + ' ' + POLICY;
+        const stop = X.prog.fake('Đang chờ AI mở rộng ảnh'); let url;
+        try { url = await AI.generateImage({ prompt, imageDataUrl: c.toDataURL('image/png') }); } finally { stop(); }
+        if (!url) throw new Error('phản hồi không hợp lệ');
         const im = await loadImg(url), out = mkCanvas(im.width, im.height); out.getContext('2d').drawImage(im, 0, 0);
         const k = im.width / (w * (1 + 2 * p)); result = { canvas: out, dx: w * p * k, dy: h * p * k, w: w * k, h: h * k }; how = 'bằng AI';
       } catch (e) { toast('Mở rộng bằng AI không khả dụng (' + e.message + ') — dùng cách trên thiết bị'); }
