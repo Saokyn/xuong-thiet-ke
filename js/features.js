@@ -497,6 +497,8 @@
   $('#rulerToggle').onclick = () => { rulers = !rulers; $('#rulerToggle').classList.toggle('on', rulers); drawRulers(); };
   new ResizeObserver(() => setTimeout(drawRulers, 30)).observe($('#stage'));
   // Keyboard shortcuts
+  // Lock = Ctrl/Cmd+Shift+L (plain Ctrl+L is the browser's address-bar shortcut and must not be captured)
+  const isLockKey = e => !!((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && String(e.key).toLowerCase() === 'l'); // @xtk-key:isLockKey
   document.addEventListener('keydown', e => {
     if (!$('#view-designer').classList.contains('active') || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
     const a = canvas.getActiveObject(); if (a?.isEditing) return;
@@ -504,7 +506,7 @@
     const act = fn => { e.preventDefault(); fn(); };
     if (mod && k === 'd') return act(duplicate);
     if (mod && k === 'g') return act(e.shiftKey ? ungroup : group);
-    if (mod && k === 'l') return act(toggleLock);
+    if (isLockKey(e)) return act(toggleLock);
     if (mod && k === 'c') return act(copy);
     if (mod && k === 'v') return act(paste);
     if (mod && k === 's') return act(() => $('#save').click());

@@ -361,5 +361,5 @@
   let lastUid = null; setInterval(() => { const u = window.XTK_CLOUDSYNC?.user?.id || null; if (u && u !== lastUid) fontsReady.then(cloudPull); lastUid = u; }, 2500);
   rebuildSelects();
   // Command palette entry
-  window.XTK_FONTS = { open: openFontDlg, list: () => [...custom.values()].map(({ data, face, ...r }) => r), ready: () => fontsReady, checkMissing, hasVietnamese, sniff, cloudPull };
+  window.XTK_FONTS = { bytes: fam => { const r = custom.get(fam); return r ? { data: r.data, ext: r.ext } : null; }, open: openFontDlg, list: () => [...custom.values()].map(({ data, face, ...r }) => r), ready: () => fontsReady, checkMissing, hasVietnamese, sniff, cloudPull };
 })();

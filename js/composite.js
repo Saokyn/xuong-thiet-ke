@@ -79,20 +79,28 @@
     }
     function setP(frame, P) { frame.fill.patternTransform = round(P); frame.dirty = true; canvas.requestRenderAll(); }
 
-    async function lồng(objs, mode) { // mode: 'fill' (default) | 'keep' (keep image where it is)
+    async function lồng(objs, mode) { // mode: 'keep' (default: image stays where it is on the page, if it covers the frame) | 'fill'
       const r = classify(objs); if (r.error) { toast(r.error, 2400); return null; }
       const { image, frame } = r;
       if (canvas.getActiveObject() && canvas.getActiveObject().type === 'activeSelection') canvas.discardActiveObject(); // objects back to scene coords
       await fontsReady(frame);
       frame.setCoords(); image.setCoords();
       const { W, H } = box(frame), so = sourceOf(image), src = so.src, k = so.k, sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height;
-      const P = mode === 'keep' ? mul(placement(frame.calcTransformMatrix(), W, H, image.calcTransformMatrix(), image.width, image.height), S(1 / k)) : fitMatrix(W, H, sw, sh, 'fill');
+      let P = mode === 'fill' ? null : mul(placement(frame.calcTransformMatrix(), W, H, image.calcTransformMatrix(), image.width, image.height), S(1 / k));
+      if (P && !covers(P, W, H, sw, sh)) { P = null; toast('Ảnh không phủ kín ' + (isText(frame) ? 'chữ' : 'hình') + ' ở vị trí hiện tại — đã chuyển sang “Lấp đầy”. Có thể chỉnh lại trong ✥ Chỉnh ảnh.', 3200); }
+      if (!P) P = fitMatrix(W, H, sw, sh, 'fill');
       quiet(() => {
-        frame.xtk = { ...(frame.xtk || {}), composite: { v: 1, image: image.toObject(PROPS()), prevFill: typeof frame.fill === 'string' ? frame.fill : null, sw, sh, k } };
+        frame.xtk = { ...(frame.xtk || {}), composite: { v: 1, image: image.toObject(PROPS()), prevFill: typeof frame.fill === 'string' ? frame.fill : null, prevStroke: frame.stroke || null, sw, sh, k } };
         frame.set('fill', pattern(src, P)); frame.dirty = true; canvas.remove(image);
       });
       canvas.setActiveObject(frame); canvas.requestRenderAll(); X.snapshot && X.snapshot(); X.refreshLayers && X.refreshLayers();
       return frame;
+    }
+    // Text/shape outline on/off while the image fills it (restored on Tách ảnh); one undo step
+    function toggleStroke(frame) {
+      if (!isComposite(frame)) return; const c = frame.xtk.composite;
+      quiet(() => { frame.set('stroke', frame.stroke ? null : (c.prevStroke || '#1e293b')); frame.dirty = true; });
+      canvas.requestRenderAll(); X.snapshot && X.snapshot(); return !!frame.stroke;
     }
     function reset(frame, mode) { const c = frame.xtk.composite, { W, H } = box(frame); setP(frame, fitMatrix(W, H, c.sw, c.sh, mode || 'fill')); }
     function tách(frame) {
@@ -102,7 +110,7 @@
         const M = releaseMatrix(frame.calcTransformMatrix(), W, H, P, img.width, img.height), d = decompose(M);
         img.set({ angle: d.angle, scaleX: d.scaleX, scaleY: d.scaleY, skewX: d.skewX, skewY: 0, flipX: false, flipY: false });
         img.setPositionByOrigin(new fabric.Point(d.translateX, d.translateY), 'center', 'center'); img.setCoords();
-        const x = { ...frame.xtk }; delete x.composite; frame.xtk = x; frame.set('fill', c.prevFill || '#94a3b8'); frame.dirty = true;
+        const x = { ...frame.xtk }; delete x.composite; frame.xtk = x; frame.set('fill', c.prevFill || '#94a3b8'); if (c.prevStroke !== undefined) frame.set('stroke', c.prevStroke); frame.dirty = true;
         quiet(() => canvas.insertAt(img, canvas.getObjects().indexOf(frame) + 1)); canvas.setActiveObject(img); canvas.requestRenderAll();
         X.snapshot && X.snapshot(); X.refreshLayers && X.refreshLayers(); res(img);
       }));
@@ -142,7 +150,7 @@
     document.addEventListener('keydown', e => { if (!ed) return; if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); } else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); end(true); } }, true);
     canvas.on('selection:cleared', () => end(true));
 
-    const api = { lồng, nest: lồng, release: tách, replace: thayẢnh, reset, begin, end, editing: () => ed && ed.frame, classify, isComposite };
+    const api = { toggleStroke, lồng, nest: lồng, release: tách, replace: thayẢnh, reset, begin, end, editing: () => ed && ed.frame, classify, isComposite };
     window.XTK_COMPOSITE = api; return api;
   }
   const api = { capScale, MAX_SIDE, MAX_PIXELS, mul, inv, T, S, apply, fitMatrix, placement, releaseMatrix, decompose, pan, zoomAround, covers, classify, isComposite, init };
