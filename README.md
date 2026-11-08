@@ -160,3 +160,31 @@ Cách hoạt động:
   - Tên font lấy từ tên file, sửa được; danh sách quản lý có nút xóa; cảnh báo nếu font thiếu dấu tiếng Việt (đo “ệ ữ ở” với font dự phòng); nhắc người dùng chỉ tải font mình có quyền dùng.
   - Thiết kế lưu danh sách `customFonts`; khi mở thiết kế thiếu font sẽ có thông báo nhẹ.
   - Khi đăng nhập: đồng bộ riêng tư vào Storage `user-fonts/{user_id}/<sha256>.<ext>` + bảng `user_fonts` (RLS chỉ chủ sở hữu). **Cần chạy `supabase/fonts.sql`** trên dự án Supabase để bật; nếu chưa chạy, ứng dụng tự bỏ qua đồng bộ, font vẫn lưu cục bộ.
+
+## Giai đoạn 11 – bước 1 (bản cục bộ, chưa phát hành)
+Đã làm trong bước này (chỉ phần này; ghép hình, lồng ảnh vào hình/chữ và sửa điểm neo **chưa làm**):
+- **Chọn đối tượng chính xác hơn** (`js/pick.js`): bấm thường bỏ qua vùng trong suốt của ảnh và khoảng trống trong khung bao của hình (chữ vẫn chọn theo khung). Dung sai 4 px màn hình cho nét mảnh. Tôn trọng xoay, `clipPath`, nhóm; bỏ qua lớp khóa/ẩn. Tối đa 60 ứng viên mỗi lần dò.
+- **Alt+bấm** và menu chuột phải **“Chọn đối tượng ở đây”** dùng cùng cách dò theo điểm ảnh thật. Danh sách có ✓ cho đối tượng đang chọn, tên + loại, rê chuột/di phím để viền cam xem trước (vẽ trên lớp tạm, không đổi lựa chọn, không vào lịch sử Hoàn tác, không xuất ra file). Phím: ↑/↓/Home/End, Enter/Space chọn, ← quay lại, Esc đóng.
+- **Xem trước nét hơn khi thu nhỏ:** làm mịn ảnh chất lượng cao và dựng lại bộ nhớ đệm một lần ~180 ms sau khi ngừng zoom. Không đổi độ phân giải xuất.
+- **Demo ngoại tuyến:** mở `?demo=pick` (tắt đồng bộ mây, không lưu).
+- Kiểm thử: `node tests/pick.unit.js`.
+
+## Giai đoạn 11 – bước 2: Lồng ảnh vào hình/chữ (bản cục bộ, chưa phát hành, chưa kiểm tra trên trình duyệt)
+- `js/composite.js` (logic + toán ma trận) và `js/composite-ui.js` (nút theo ngữ cảnh). Chọn **1 ảnh + 1 hình khối hoặc chữ** → **🖼 Lồng ảnh** trên thanh nổi. Lựa chọn không hợp lệ (2 ảnh, nhóm, lớp khóa, đã lồng…) có hướng dẫn tiếng Việt.
+- Không cắt ảnh: hình/chữ giữ nguyên, nền được thay bằng `fabric.Pattern` (no-repeat + `patternTransform`); JSON ảnh gốc và màu nền cũ lưu trong `xtk.composite`. **Tách ảnh** trả lại ảnh độc lập đúng vị trí đang thấy.
+- Chữ vẫn sửa được nội dung/phông (chờ phông tải xong, kể cả phông tự tải lên). Bấm đúp **chữ** = sửa chữ; dùng nút **✥ Chỉnh ảnh**. Bấm đúp **hình** = chỉnh ảnh.
+- Chế độ chỉnh ảnh: khung đứng yên, kéo để dời, cuộn để phóng; **Vừa khung / Lấp đầy / Đặt lại / Thay ảnh / Tách ảnh**, Enter = áp dụng (1 bước Hoàn tác), Esc = hủy.
+- Ô màu bị chặn khi đối tượng đang chứa ảnh (tránh mất ảnh âm thầm).
+- Demo ngoại tuyến: `?demo=composite` (tắt mây, không lưu, ảnh thử tự sinh, có nhãn DEMO).
+- Kiểm thử: `node tests/composite.unit.js`.
+- Giới hạn: ảnh bị lưu 2 lần trong JSON (nguồn pattern + ảnh gốc) nên thiết kế nặng hơn — tránh lồng nhiều ảnh rất lớn. Khi đồng bộ, cloud.js tải cả `fill.source` lẫn `xtk.composite.image` lên kho ảnh riêng như ảnh thường. Ảnh hiển thị trong khung bị giới hạn 8192 px/cạnh, 40 MP (có thông báo; ảnh gốc giữ nguyên để Tách ảnh). Bấm chọn khung chứa ảnh theo **hình dạng khung**, không theo độ trong suốt của ảnh. Phông, lưu–mở, xuất SVG/PDF chưa kiểm chứng trên trình duyệt. Ghép hình vector (booleans) và sửa điểm neo **chưa làm**.
+
+## Giai đoạn 11 – bước 3: Kết hợp hình + Sửa điểm (bản cục bộ, chưa phát hành, chưa kiểm tra trên trình duyệt)
+- **⧉ Kết hợp hình** (`js/shape-boolean.js`): chọn ≥2 hình → Hợp nhất / Trừ / Giao nhau / Loại phần giao. Trừ/Giao/Loại hiện chỉ cho **đúng 2 hình**; thanh ghi rõ **Sau (A)** và **Trước (B)**, có **⇄ Đổi trước/sau**. Xem trước màu cam trên lớp tạm (không đổi hình gốc, không vào lịch sử). Áp dụng/Enter = 1 bước Hoàn tác; Hủy/Esc = không đổi gì. Kết quả rỗng: không áp dụng, hình gốc giữ nguyên.
+- Kết quả là **một đường vector** (fill-rule evenodd) giữ lỗ và các phần rời — không nhóm giả, không ảnh. Đường cong (tròn, elip, bo góc, đường cong Bézier) được **làm phẳng thành đoạn thẳng** với dung sai 0,5 đơn vị trang (tối đa 256 đoạn/cung, tổng 20.000 điểm). Hỗ trợ xoay, kéo giãn không đều, lật, nghiêng.
+- Màu: Hợp nhất/Trừ/Loại lấy màu & viền hình **sau**; Giao nhau lấy hình **trước**. Viền được quy đổi theo tỉ lệ hình nguồn và vẽ quanh đường kết quả mới (không giữ viền từng hình gốc). JSON hình gốc lưu trong `xtk.boolean.sources`.
+- Từ chối kèm hướng dẫn: chữ, ảnh, nhóm, đường hở/đường gấp khúc, hình chỉ có viền, tô chuyển màu/ảnh lồng, lớp khóa, cung tròn cắt dở.
+- Thư viện: [polygon-clipping 0.15.7](https://github.com/mfogel/polygon-clipping) (MIT, `vendor/polygon-clipping.min.js`, ~29 KB). Chạy trong **Web Worker riêng** (`js/bool-worker.js`), chỉ khởi động khi bấm Kết hợp hình; giới hạn 50 hình/20.000 điểm, **quá 4 giây thì dừng hẳn worker**; kết quả cũ bị bỏ qua. Không có phương án chạy trên luồng chính. Trong lúc tính: khóa thao tác trên canvas, nút Áp dụng tắt. Áp dụng luôn kiểm tra lại hình nguồn (bị xóa → hủy; bị đổi → tính lại). Thanh công cụ hiện “Đường cong được xấp xỉ bằng đoạn thẳng” khi có hình cong.
+- Viền cam xem trước / di chuột được vẽ trên một canvas phủ riêng (`js/xtk-util.js`), không xuất ra file và không xóa lẫn nhau.
+- **✎ Sửa điểm** (`js/shape-nodes.js`): hình chữ nhật góc vuông → đa giác 4 điểm, tam giác → 3 điểm, đa giác, đường thẳng 1 vòng (vd. kết quả kết hợp không lỗ). Kéo điểm, bấm cạnh để thêm, chọn điểm + Delete để xóa (tối thiểu 3), Enter xong / Esc hủy (1 bước Hoàn tác). Điểm & dung sai theo pixel màn hình. Chặn hoàn tất khi cạnh cắt nhau hoặc hình dẹt. Hình cong (tròn, elip, bo góc, đường cong, nhiều vòng/lỗ) bị từ chối — **không tự làm thẳng**, chưa có tay nắm Bézier.
+- Demo ngoại tuyến: `?demo=shapes`. Kiểm thử: `node tests/shape-boolean.unit.js`, `node tests/shape-nodes.unit.js`.

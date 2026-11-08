@@ -524,5 +524,5 @@
 
   renderTemplates();
   // Hooks for automated tests
-  window.XTK = { colorPreview: preview, previewBegin, previewCommit, previewCancel, fitPage, zoomAt, zoomSmooth, panBy, setView, view, fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, selectLowDpi, lowDpi: () => lowDpi.slice(), fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
+  window.XTK = { colorPreview: preview, previewBegin, previewCommit, previewCancel, fitPage, zoomAt, zoomSmooth, panBy, setView, view, fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, selectLowDpi, lowDpi: () => lowDpi.slice(), fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, isRestoring: () => restoring, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
 })();

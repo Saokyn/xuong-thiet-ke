@@ -164,9 +164,11 @@
   refreshNow();
 
   // ================= 2. Alt+click cycling & "select object here" =================
-  function hitsAt(e) {
+  const PK = window.XTK_PICK, PKUI = PK ? PK.install(X) : { hover() { } };
+  function hitsAt(e) { // geometry + alpha aware (transparent regions/empty bbox ignored); locked/hidden excluded
+    if (PK) return PK.hitsAt(canvas, e, isBg);
     const p = canvas.getPointer(e);
-    return canvas.getObjects().filter(o => !isBg(o) && o.visible !== false && o.containsPoint(p, null, true)).reverse();
+    return canvas.getObjects().filter(o => !isBg(o) && o.visible !== false && !isLocked(o) && o.containsPoint(p, null, true)).reverse();
   }
   let altPick = null, altLast = null;
   canvas.on('mouse:up', () => { if (altPick) { const o = altPick; altPick = null; if (canvas.getActiveObject() !== o) { canvas.setActiveObject(o); canvas.requestRenderAll(); refreshNow(); } } });
@@ -183,20 +185,37 @@
     lastHits = hitsAt(ev.detail); pickList.hidden = true;
     pick.parentElement.hidden = lastHits.length < 1; pick.querySelector('span').textContent = `(${lastHits.length}) ▸`;
   });
-  function openPick() {
-    pickList.innerHTML = lastHits.map((o, i) => `<button data-pick="${i}" role="menuitem" class="${canvas.getActiveObjects().includes(o) ? 'on' : ''}"><span>${ICON[o.type] || '◻'} ${esc(layerName(o))}</span>${isLocked(o) ? '<small>🔒</small>' : ''}</button>`).join('');
+  function openPick(focus) {
+    const act = canvas.getActiveObjects();
+    pickList.innerHTML = lastHits.map((o, i) => { const on = act.includes(o);
+      return `<button data-pick="${i}" role="menuitemradio" aria-checked="${on}" tabindex="-1" class="${on ? 'on' : ''}"><span class="pkchk" aria-hidden="true">${on ? '✓' : ''}</span><span class="pkname">${ICON[o.type] || '◻'} ${esc(layerName(o))}</span><small>${esc(typeName(o))}</small></button>`; }).join('');
+    pickList.setAttribute('aria-label', 'Đối tượng tại điểm bấm'); pick.setAttribute('aria-expanded', 'true');
     pickList.hidden = false; pickList.classList.remove('flip');
     const r = pickList.getBoundingClientRect(); if (r.right > window.innerWidth - 4) pickList.classList.add('flip');
+    if (focus) { const bs = pickList.querySelectorAll('button'), k = Math.max(0, [...bs].findIndex(b => b.classList.contains('on'))); bs[k]?.focus(); }
   }
-  pick.addEventListener('click', e => { e.stopPropagation(); pickList.hidden ? openPick() : (pickList.hidden = true); });
-  pick.addEventListener('mouseenter', openPick);
-  pick.addEventListener('keydown', e => { if (e.key === 'ArrowRight') { openPick(); pickList.querySelector('button')?.focus(); } });
-  pickList.addEventListener('click', e => {
-    const b = e.target.closest('[data-pick]'); if (!b) return; e.stopPropagation(); const o = lastHits[+b.dataset.pick]; menu.hidden = true; pickList.hidden = true; if (!o) return;
-    if (isLocked(o)) { canvas.discardActiveObject(); pendingLock = o; setTab('layers'); refreshNow(); X.toast('Lớp đang khóa — mở khóa trong bảng Lớp', 1600); }
-    else { canvas.setActiveObject(o); canvas.requestRenderAll(); refreshNow(); }
+  function closePick(refocus) { pickList.hidden = true; pick.setAttribute('aria-expanded', 'false'); PKUI.hover(null); if (refocus) pick.focus(); }
+  function choose(o) {
+    menu.hidden = true; closePick(); if (!o) return;
+    canvas.setActiveObject(o); canvas.requestRenderAll(); refreshNow(); // selection only — no history snapshot
+  }
+  pick.addEventListener('click', e => { e.stopPropagation(); pickList.hidden ? openPick(e.detail === 0) : closePick(); });
+  pick.addEventListener('mouseenter', () => openPick(false));
+  pick.addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openPick(true); } });
+  pickList.addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (!b) return; e.stopPropagation(); choose(lastHits[+b.dataset.pick]); });
+  pickList.addEventListener('mouseover', e => { const b = e.target.closest('[data-pick]'); PKUI.hover(b ? lastHits[+b.dataset.pick] : null); });
+  pickList.addEventListener('mouseleave', () => PKUI.hover(null));
+  pickList.addEventListener('focusin', e => { const b = e.target.closest('[data-pick]'); if (b) PKUI.hover(lastHits[+b.dataset.pick]); });
+  pickList.addEventListener('keydown', e => {
+    const bs = [...pickList.querySelectorAll('button')], i = bs.indexOf(document.activeElement);
+    const n = PK ? PK.navIndex(e.key, i, bs.length) : null;
+    if (n != null) { e.preventDefault(); e.stopPropagation(); bs[n].focus(); return; }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); if (i >= 0) choose(lastHits[+bs[i].dataset.pick]); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); closePick(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePick(); menu.hidden = true; }
   });
-  menu.addEventListener('mouseover', e => { if (!e.target.closest('.ctxsub')) pickList.hidden = true; });
+  new MutationObserver(() => { if (menu.hidden) PKUI.hover(null); }).observe(menu, { attributes: true, attributeFilter: ['hidden'] });
+  menu.addEventListener('mouseover', e => { if (!e.target.closest('.ctxsub') && !pickList.hidden) closePick(); });
 
   // ================= 3. Custom fonts =================
   const BUILTIN = X.FONTS.slice(); const custom = new Map(); // family -> rec
