@@ -197,17 +197,76 @@
     shBlur: { min: 0, max: 100, step: 1, unit: '', def: 20 },
     shOff: { min: -50, max: 50, step: 1, unit: '', def: 8 },
     textStrokeW: { min: 0, max: 40, step: 1, unit: '', def: 6 },
-    imgRad: { min: 0, max: 50, step: 1, unit: '%', def: 0 }
+    imgRad: { min: 0, max: 50, step: 1, unit: '%', def: 0 },
+    widthPx: { min: 1, max: 20000, step: 1, unit: 'px', def: 100 },
+    heightPx: { min: 1, max: 20000, step: 1, unit: 'px', def: 100 }
   };
   function clampNum(key, v) {
     const n = NUM[key]; if (!n) return +v;
     return clamp(+v, n.min, n.max);
   }
 
+
+  // Pixel size from Fabric object (getScaledWidth/Height)
+  function getPixelSize(o) {
+    if (!o) return { w: 0, h: 0 };
+    const w = typeof o.getScaledWidth === 'function' ? o.getScaledWidth() : (o.width || 0) * Math.abs(o.scaleX || 1);
+    const h = typeof o.getScaledHeight === 'function' ? o.getScaledHeight() : (o.height || 0) * Math.abs(o.scaleY || 1);
+    return { w: Math.round(Math.abs(w)), h: Math.round(Math.abs(h)) };
+  }
+  function setPixelSize(o, dim, value, lockRatio) {
+    if (!o) return false;
+    const v = Math.max(1, Math.round(+value || 1));
+    const baseW = Math.max(1e-6, Math.abs(o.width || 1));
+    const baseH = Math.max(1e-6, Math.abs(o.height || 1));
+    if (dim === 'width' || dim === 'w') {
+      const sx = v / baseW;
+      if (lockRatio) {
+        const cur = getPixelSize(o); const ratio = cur.w ? cur.h / cur.w : 1;
+        o.set({ scaleX: sx, scaleY: (v * ratio) / baseH });
+      } else if (typeof o.set === 'function') o.set('scaleX', sx); else o.scaleX = sx;
+    } else {
+      const sy = v / baseH;
+      if (lockRatio) {
+        const cur = getPixelSize(o); const ratio = cur.h ? cur.w / cur.h : 1;
+        o.set({ scaleY: sy, scaleX: (v * ratio) / baseW });
+      } else if (typeof o.set === 'function') o.set('scaleY', sy); else o.scaleY = sy;
+    }
+    if (o.setCoords) o.setCoords();
+    o.dirty = true; return true;
+  }
+
+  // Place a popover box (pw×ph) in host (hw×hh) avoiding object rect (ox,oy,ow,oh) — all same coordinate space.
+  // Returns {x,y} top-left. Prefers right of object, then left, then below, then host edge.
+  function placeAvoiding(hostW, hostH, pw, ph, ox, oy, ow, oh, margin) {
+    margin = margin == null ? 8 : margin;
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+    const fits = (x, y) => x >= margin && y >= margin && x + pw <= hostW - margin && y + ph <= hostH - margin;
+    const overlaps = (x, y) => !(x + pw <= ox || x >= ox + ow || y + ph <= oy || y >= oy + oh);
+    const cands = [
+      { x: ox + ow + margin, y: oy },                 // right
+      { x: ox - pw - margin, y: oy },                 // left
+      { x: ox, y: oy + oh + margin },                 // below
+      { x: ox, y: oy - ph - margin },                 // above
+      { x: hostW - pw - margin, y: oy },              // dock right edge
+      { x: margin, y: oy },                           // dock left edge
+      { x: hostW - pw - margin, y: hostH - ph - margin },
+      { x: margin, y: margin }
+    ];
+    for (const c of cands) {
+      const x = clamp(c.x, margin, Math.max(margin, hostW - pw - margin));
+      const y = clamp(c.y, margin, Math.max(margin, hostH - ph - margin));
+      if (fits(x, y) && !overlaps(x, y)) return { x: Math.round(x), y: Math.round(y) };
+    }
+    // last resort: dock top-right of host (toolbar side), even if slight overlap
+    return { x: Math.round(hostW - pw - margin), y: Math.round(margin) };
+  }
+
   const api = {
     FONT_MIN, FONT_MAX, RECENT_MAX, RECENT_KEY,
     clamp, clampFont, clampAngle, clampOpacity, normHex, validateHex,
     strokeStyleOf, dashForStyle, applyStrokeStyle, syncDashToWidth, getImageRadiusPct, NUM, clampNum,
+    getPixelSize, setPixelSize, placeAvoiding,
     getDisplayFontSize, setDisplayFontSize,
     loadRecent, pushRecent, extractDocumentColors,
     colorTargetBlocked, applyColorTarget, applyMulti, isSolidStr

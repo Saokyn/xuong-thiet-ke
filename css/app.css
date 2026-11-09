@@ -467,3 +467,21 @@ option.fontup{font-weight:600;color:#4f46e5}
 .props .numpair .numrow{margin-bottom:6px}
 .props .psec{border:1px solid #eef0f6;border-radius:8px;padding:4px 8px;margin-bottom:8px;background:#fafbff}
 .props .psec>summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}
+
+/* Number-only rows (X/Y/W/H) — compact 2-col, no slider overflow */
+.props .numrow-only{flex-wrap:nowrap;gap:4px;margin-bottom:4px}
+.props .numrow-only .nl{flex:0 0 auto;width:auto;max-width:42%;font-size:11px;white-space:nowrap}
+.props .numrow-only input[type=number]{flex:1 1 48px;width:48px;min-width:40px;max-width:72px}
+.props .numpair{display:grid;grid-template-columns:1fr 1fr;gap:4px 6px;align-items:start}
+.props .numpair .numrow-only{margin-bottom:2px}
+.props .lockratio{display:flex;align-items:center;gap:6px;margin:4px 0 8px;font-size:12px}
+.props .lockratio input{width:auto;margin:0}
+
+/* Toolbar active color swatch */
+.ctxbar .swbtn.active-sw,.ctx-pop .swbtn.active-sw{outline:2px solid #4f46e5;outline-offset:1px;background:#eef2ff}
+.ctxbar .swbtn.active-sw i,.ctx-pop .swbtn.active-sw i{box-shadow:0 0 0 1px #4f46e5}
+
+/* Popover hosted on stage-wrap — beside selection, not under toolbar covering text */
+.stage-wrap{position:relative}
+.ctx-pop.ctx-pop-stage{position:absolute;z-index:45}
+.tools .color-panel .cp-sw.current{box-shadow:inset 0 0 0 2px #fff,0 0 0 2px #4f46e5}

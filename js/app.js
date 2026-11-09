@@ -333,9 +333,16 @@
     const openSec = (() => { try { return JSON.parse(localStorage.getItem('xtk-props-sec') || '{}'); } catch (e) { return {}; } })();
     const sec = (id, title, body) => `<details class="psec" data-sec="${id}" ${openSec[id] !== false ? 'open' : ''}><summary>${title}</summary>${body}</details>`;
     const N = (CTX && CTX.NUM) || {};
+    const lockRatio = !!(o.xtk && o.xtk.lockRatio);
     const num = (label, key, value, meta) => {
       const m = Object.assign({}, N[key] || {}, meta || {});
       const min = m.min, max = m.max, step = m.step == null ? 1 : m.step, unit = m.unit || '', def = m.def != null ? m.def : value;
+      const only = !!m.only; // number-only (no slider) for X/Y/W/H
+      if (only) {
+        return `<label class="numrow numrow-only"><span class="nl">${label}</span>
+          <input type="number" data-p="${key}" data-role="num" min="${min}" max="${max}" step="${step}" value="${value}">
+          <span class="unit">${unit}</span></label>`;
+      }
       return `<label class="numrow"><span class="nl">${label}</span>
         <input type="range" data-p="${key}" data-role="slider" min="${min}" max="${max}" step="${step}" value="${value}">
         <input type="number" data-p="${key}" data-role="num" min="${min}" max="${max}" step="${step}" value="${value}">
@@ -345,10 +352,12 @@
     const dispFs = isText && CTX ? Math.round(CTX.getDisplayFontSize(o)) : Math.round(o.fontSize || 0);
     const ang = CTX ? CTX.clampAngle(o.angle) : Math.round(((o.angle % 360) + 360) % 360);
     const opPct = Math.round((o.opacity == null ? 1 : o.opacity) * 100);
+    const px = CTX && CTX.getPixelSize ? CTX.getPixelSize(o) : { w: Math.round(Math.abs((o.width || 0) * (o.scaleX || 1))), h: Math.round(Math.abs((o.height || 0) * (o.scaleY || 1))) };
     let h = '';
     h += sec('pos', 'Vị trí & kích thước',
-      `<div class="numpair">${num('X', 'left', Math.round(o.left), { def: 0 })}${num('Y', 'top', Math.round(o.top), { def: 0 })}</div>` +
-      `<div class="numpair">${num('Rộng', 'scaleX', +(+o.scaleX).toFixed(2), { def: 1 })}${num('Cao', 'scaleY', +(+o.scaleY).toFixed(2), { def: 1 })}</div>` +
+      `<div class="numpair">${num('X', 'left', Math.round(o.left), { only: true, unit: 'px', def: 0 })}${num('Y', 'top', Math.round(o.top), { only: true, unit: 'px', def: 0 })}</div>` +
+      `<div class="numpair">${num('Rộng', 'widthPx', px.w, { only: true, unit: 'px', def: px.w, min: 1, max: 20000 })}${num('Cao', 'heightPx', px.h, { only: true, unit: 'px', def: px.h, min: 1, max: 20000 })}</div>` +
+      `<label class="small lockratio"><input type="checkbox" data-p="lockRatio" ${lockRatio ? 'checked' : ''}> Khóa tỉ lệ Rộng/Cao</label>` +
       num('Xoay', 'angle', Math.round(ang), { def: 0 }) +
       num('Độ mờ', 'opacity', opPct, { def: 100 }));
     if (isText) {
@@ -378,12 +387,14 @@
     b.querySelectorAll('details[data-sec]').forEach(d => d.addEventListener('toggle', () => {
       try { const m = JSON.parse(localStorage.getItem('xtk-props-sec') || '{}'); m[d.dataset.sec] = d.open; localStorage.setItem('xtk-props-sec', JSON.stringify(m)); } catch (e) { }
     }));
-    b.querySelectorAll('[data-open-color]').forEach(btn => btn.onclick = () => window.XTK_COLOR_PANEL && window.XTK_COLOR_PANEL.open(btn.dataset.openColor, o));
     const applyProp = (p, raw, live) => {
       let v = raw;
-      if (CTX && CTX.clampNum && ['left','top','scaleX','scaleY','angle','opacity','fontSizeDisp','charSpacing','lineHeight','strokeWidth','rx','imgRad'].includes(p)) v = CTX.clampNum(p, raw);
+      if (p === 'lockRatio') { o.xtk = { ...(o.xtk || {}), lockRatio: !!raw }; return; }
+      if (CTX && CTX.clampNum && ['left','top','scaleX','scaleY','angle','opacity','fontSizeDisp','charSpacing','lineHeight','strokeWidth','rx','imgRad','widthPx','heightPx'].includes(p)) v = CTX.clampNum(p, raw);
       else if (['fontSize', 'fontWeight', 'left', 'top', 'scaleX', 'scaleY', 'opacity', 'angle', 'charSpacing', 'lineHeight', 'strokeWidth', 'rx'].includes(p)) v = +raw;
-      if (p === 'fontSizeDisp' && CTX) CTX.setDisplayFontSize(o, v);
+      if (p === 'widthPx' && CTX) { CTX.setPixelSize(o, 'width', v, !!(o.xtk && o.xtk.lockRatio)); const np = CTX.getPixelSize(o); b.querySelectorAll('[data-p=heightPx]').forEach(el => { el.value = np.h; }); }
+      else if (p === 'heightPx' && CTX) { CTX.setPixelSize(o, 'height', v, !!(o.xtk && o.xtk.lockRatio)); const np = CTX.getPixelSize(o); b.querySelectorAll('[data-p=widthPx]').forEach(el => { el.value = np.w; }); }
+      else if (p === 'fontSizeDisp' && CTX) CTX.setDisplayFontSize(o, v);
       else if (p === 'opacity') o.set('opacity', (CTX ? CTX.clampOpacity(v / 100) : Math.min(1, Math.max(0, v / 100))));
       else if (p === 'angle') o.rotate(CTX ? CTX.clampAngle(v) : +v);
       else if (p === 'rx') o.set({ rx: +v, ry: +v });
@@ -402,8 +413,25 @@
       b.querySelectorAll(`[data-p="${p}"]`).forEach(el => { if (String(el.value) !== String(v) && el.type !== 'color') el.value = v; });
     };
     b.querySelectorAll('[data-p]').forEach(inp => {
-      inp.oninput = () => applyProp(inp.dataset.p, inp.value, true);
-      inp.onchange = () => { applyProp(inp.dataset.p, inp.value, false); snapshot(); refreshLayers(); if (window.XTK_CTX_UI) window.XTK_CTX_UI.refresh(); };
+      const only = inp.closest('.numrow-only');
+      const commit = () => { applyProp(inp.dataset.p, inp.type === 'checkbox' ? inp.checked : inp.value, false); snapshot(); refreshLayers(); if (window.XTK_CTX_UI) window.XTK_CTX_UI.refresh(); };
+      if (only) {
+        // Live preview while typing optional; commit on blur / Enter → 1 undo
+        inp.oninput = () => applyProp(inp.dataset.p, inp.value, true);
+        inp.onchange = commit;
+        inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); commit(); } };
+      } else if (inp.type === 'checkbox') {
+        inp.onchange = commit;
+      } else {
+        inp.oninput = () => applyProp(inp.dataset.p, inp.value, true);
+        inp.onchange = commit;
+      }
+    });
+    // Bảng màu… → full color panel jump (target + highlight + focus)
+    b.querySelectorAll('[data-open-color]').forEach(btn => btn.onclick = () => {
+      const t = btn.dataset.openColor;
+      const hex = typeof o[t === 'stroke' ? 'stroke' : 'fill'] === 'string' ? o[t === 'stroke' ? 'stroke' : 'fill'] : null;
+      window.XTK_COLOR_PANEL && window.XTK_COLOR_PANEL.open(t, o, { hex, ensureVisible: true });
     });
     b.querySelectorAll('[data-reset]').forEach(btn => btn.onclick = () => {
       const key = btn.dataset.reset, def = btn.dataset.def;

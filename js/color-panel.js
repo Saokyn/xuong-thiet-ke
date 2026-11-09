@@ -14,14 +14,38 @@
   panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Chọn màu');
   tools.appendChild(panel);
 
-  function titleFor(target) {
-    return ({ fill: 'Màu tô', stroke: 'Màu viền', text: 'Màu chữ', textBg: 'Nền chữ', shadow: 'Màu bóng', bg: 'Màu nền trang' })[target] || 'Chọn màu';
+  function titleFor(target, obj) {
+    const base = ({ fill: 'Màu tô', stroke: 'Màu viền', text: 'Màu chữ', textBg: 'Nền chữ', shadow: 'Màu bóng', bg: 'Màu nền trang' })[target] || 'Chọn màu';
+    const typeName = obj && ({ textbox: 'Chữ', 'i-text': 'Chữ', text: 'Chữ', rect: 'Hình chữ nhật', circle: 'Hình tròn', ellipse: 'Elip', triangle: 'Tam giác', path: 'Đường', group: 'Nhóm', image: 'Ảnh' })[obj.type];
+    const name = obj && (obj.name || (root.XTK_LAYERS && root.XTK_LAYERS.layerName && root.XTK_LAYERS.layerName(obj)) || typeName || obj.type);
+    return name && target !== 'bg' ? base + ' – ' + name : base;
+  }
+  function currentHexOf(target, obj) {
+    if (target === 'bg') return T.normHex(typeof canvas.backgroundColor === 'string' ? canvas.backgroundColor : '') || '#ffffff';
+    if (!obj) return '#4f46e5';
+    if (target === 'stroke') return T.normHex(obj.stroke) || '#111827';
+    if (target === 'textBg') return T.normHex(obj.backgroundColor) || '#fde047';
+    if (target === 'shadow') return T.normHex(obj.shadow && obj.shadow.color) || '#000000';
+    return T.normHex(typeof obj.fill === 'string' ? obj.fill : '') || '#4f46e5';
+  }
+  function ensureVisible() {
+    const designer = document.getElementById('view-designer');
+    if (designer && designer.classList.contains('hide-left')) {
+      const btn = document.getElementById('toggleLeft'); if (btn) btn.click();
+    }
+    if (designer && designer.classList.contains('hide-tools')) {
+      const btn = document.getElementById('toggleTools'); if (btn) btn.click();
+    }
+    tools.classList.add('color-open');
+    try { tools.scrollTop = 0; } catch (e) { }
   }
 
   function swatchesHtml(colors, cls) {
-    return `<div class="cp-swatches ${cls || ''}">${(colors || []).map(c =>
-      `<button type="button" class="cp-sw" style="background:${c}" data-c="${c}" title="${c}" aria-label="Màu ${c}"></button>`
-    ).join('')}</div>`;
+    const cur = state.currentHex;
+    return '<div class="cp-swatches ' + (cls || '') + '">' + (colors || []).map(c => {
+      const on = !!(cur && T.normHex(c) === cur);
+      return '<button type="button" class="cp-sw' + (on ? ' on current' : '') + '" style="background:' + c + '" data-c="' + c + '" title="' + c + '" aria-label="Màu ' + c + '" aria-current="' + (on ? 'true' : 'false') + '"></button>';
+    }).join('') + '</div>';
   }
 
 
@@ -69,11 +93,11 @@
 
     panel.innerHTML = `
       <div class="cp-head"><button type="button" class="cp-back" data-act="close" title="Đóng" aria-label="Đóng bảng màu">←</button>
-        <b>${esc(titleFor(state.target))}</b>
+        <b>${esc(titleFor(state.target, state.obj))}</b>
         <button type="button" class="cp-x" data-act="close" aria-label="Đóng">✕</button></div>
       ${block ? `<p class="cp-note" role="status">⚠ ${esc(block)}</p>` : ''}
-      <div class="cp-hex"><span class="small">HEX</span> <input id="cpHex" type="text" spellcheck="false" maxlength="7" placeholder="#rrggbb" value="" ${block ? 'disabled' : ''}><button type="button" data-act="hexok" ${block ? 'disabled' : ''}>OK</button>
-        <input id="cpNative" type="color" data-nopv value="#4f46e5" title="Chọn màu" ${block ? 'disabled' : ''}>
+      <div class="cp-hex"><span class="small">HEX</span> <input id="cpHex" type="text" spellcheck="false" maxlength="7" placeholder="#rrggbb" value="${esc(state.currentHex || '')}" ${block ? 'disabled' : ''}><button type="button" data-act="hexok" ${block ? 'disabled' : ''}>OK</button>
+        <input id="cpNative" type="color" data-nopv value="${state.currentHex || '#4f46e5'}" title="Chọn màu" ${block ? 'disabled' : ''}>
         <button type="button" data-act="eye" title="Hút màu từ thiết kế" ${block ? 'disabled' : ''}>💧</button></div>
       <h5>Màu trên trang</h5>${docs.length ? swatchesHtml(docs) : '<p class="small muted">Chưa có màu đặc trên trang.</p>'}
       <h5>Gần đây</h5>${recent.length ? swatchesHtml(recent) : '<p class="small muted">Chưa có.</p>'}
@@ -92,15 +116,26 @@
         </div>`).join('')}</div>`;
   }
 
-  function open(target, obj) {
-    state.open = true; state.target = target || 'fill'; state.obj = obj || canvas.getActiveObject() || null; state._gEdit = null; state._g = currentGradStops(state.obj);
+  function open(target, obj, opts) {
+    opts = opts || {};
+    state.open = true; state.target = target || 'fill'; state.obj = obj || canvas.getActiveObject() || null;
+    state._gEdit = null; state._g = currentGradStops(state.obj);
     state.q = state.q || ''; state.cat = state.cat || null;
-    panel.hidden = false; tools.classList.add('color-open');
+    state.currentHex = T.normHex(opts.hex) || currentHexOf(state.target, state.obj);
+    state.swatchEl = opts.swatchEl || null;
+    panel.hidden = false;
+    ensureVisible();
     render();
-    const hex = $('#cpHex'); if (hex) setTimeout(() => hex.focus(), 30);
+    try { panel.scrollTop = 0; } catch (e) { }
+    document.querySelectorAll('.ctxbar .swbtn.active-sw, .ctx-pop .swbtn.active-sw').forEach(el => el.classList.remove('active-sw'));
+    if (state.swatchEl) state.swatchEl.classList.add('active-sw');
+    const hex = $('#cpHex');
+    if (hex) setTimeout(() => { try { hex.focus(); hex.select(); } catch (e) { } }, 40);
   }
   function close() {
     state.open = false; panel.hidden = true; tools.classList.remove('color-open');
+    document.querySelectorAll('.ctxbar .swbtn.active-sw, .ctx-pop .swbtn.active-sw').forEach(el => el.classList.remove('active-sw'));
+    state.swatchEl = null;
   }
 
   function pick(hex, live) {
@@ -185,15 +220,15 @@
     // Convenience: bind a button/swatch element
     bindSwatch(el, target, getObj) {
       if (!el) return;
-      el.addEventListener('click', e => {
-        // Prefer opening panel over native picker for type=color: prevent default and open
-        if (el.type === 'color') { e.preventDefault(); }
-        open(target, typeof getObj === 'function' ? getObj() : (getObj || canvas.getActiveObject()));
-      });
-      if (el.type === 'color') {
-        el.addEventListener('mousedown', e => { e.preventDefault(); open(target, typeof getObj === 'function' ? getObj() : canvas.getActiveObject()); });
-      }
-    }
+      const go = () => {
+        const o = typeof getObj === 'function' ? getObj() : (getObj || canvas.getActiveObject());
+        const hex = el.dataset.c || (el.type === 'color' ? el.value : null);
+        open(target, o, { hex, swatchEl: el, ensureVisible: true });
+      };
+      el.addEventListener('click', e => { if (el.type === 'color') e.preventDefault(); go(); });
+      if (el.type === 'color') el.addEventListener('mousedown', e => { e.preventDefault(); go(); });
+    },
+    currentHexOf, titleFor, ensureVisible
   };
   root.XTK_COLOR_PANEL = api;
 })(typeof window !== 'undefined' ? window : globalThis);

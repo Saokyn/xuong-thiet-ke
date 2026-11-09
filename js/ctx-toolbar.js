@@ -147,12 +147,39 @@
     pop.hidden = true; pop.innerHTML = ''; popKind = null; popAnchor = null;
     pop.style.left = pop.style.top = '';
   }
+  // Host popover on stage-wrap so it can sit beside the selection without covering it
+  function ensurePopHost() {
+    const host = stageWrap || stage || document.body;
+    if (pop.parentNode !== host) host.appendChild(pop);
+    pop.classList.add('ctx-pop-stage');
+    return host;
+  }
   function placePop(anchor) {
-    if (!anchor) return;
-    const br = (slot || bar).getBoundingClientRect(), ar = anchor.getBoundingClientRect();
-    let x = ar.left - br.left, y = ar.bottom - br.top + 4;
-    pop.style.left = Math.max(4, Math.min(x, br.width - 280)) + 'px';
-    pop.style.top = y + 'px';
+    const host = ensurePopHost();
+    const hr = host.getBoundingClientRect();
+    // measure after visible
+    pop.hidden = false;
+    const pw = Math.max(260, pop.offsetWidth || 280), ph = Math.max(160, pop.offsetHeight || 200);
+    const o = canvas.getActiveObject();
+    let pos;
+    if (o && T.placeAvoiding) {
+      const canvasEl = canvas.upperCanvasEl || canvas.lowerCanvasEl || canvas.getElement();
+      const cr = canvasEl.getBoundingClientRect();
+      const br = o.getBoundingRect(true, true);
+      const ox = cr.left + br.left - hr.left;
+      const oy = cr.top + br.top - hr.top;
+      pos = T.placeAvoiding(hr.width, hr.height, pw, ph, ox, oy, br.width, br.height, 8);
+    } else if (anchor) {
+      const ar = anchor.getBoundingClientRect();
+      let x = ar.left - hr.left, y = ar.bottom - hr.top + 6;
+      x = Math.max(8, Math.min(x, hr.width - pw - 8));
+      y = Math.max(8, Math.min(y, hr.height - ph - 8));
+      pos = { x, y };
+    } else {
+      pos = { x: hr.width - pw - 8, y: 8 };
+    }
+    pop.style.left = pos.x + 'px';
+    pop.style.top = pos.y + 'px';
   }
   function openPop(kind, anchor) {
     refresh(); // ensure groups visible for anchors
@@ -279,11 +306,13 @@
     const sw = e.target.closest('.cp-open');
     if (sw && CP) {
       const target = sw.dataset.ctarget;
-      // Ensure effect flags on before picking color
       if (target === 'shadow') { const cb = pop.querySelector('[data-c="shadow"]'); if (cb && !cb.checked) { cb.checked = true; applyEffectsLive(); } }
       if (target === 'stroke') { const cb = pop.querySelector('[data-c="stroke"]'); if (cb && !cb.checked) { cb.checked = true; applyEffectsLive(); } }
       if (target === 'textBg') { const cb = pop.querySelector('[data-c="bg"]'); if (cb && !cb.checked) { cb.checked = true; applyEffectsLive(); } }
-      CP.open(target, canvas.getActiveObject());
+      const o = canvas.getActiveObject();
+      const hex = (sw.querySelector('i') && sw.querySelector('i').style.background) || null;
+      CP.open(target, o, { hex, swatchEl: sw, ensureVisible: true });
+      // Keep popover open; color panel is on the left — user sees both
     }
   });
 
@@ -366,7 +395,7 @@
     if (group) $('#fbOp').value = Math.round((o.opacity == null ? 1 : o.opacity) * 100);
 
     // Refresh open popover contents (keep open)
-    if (!pop.hidden && popKind) { renderPop(); placePop(popAnchor); }
+    if (!pop.hidden && popKind) placePop(popAnchor);
   }
 
   const snap = () => { canvas.requestRenderAll(); X.snapshot && X.snapshot(); X.renderProps && X.renderProps(); refresh(); };
@@ -445,7 +474,13 @@
 
   let raf = 0;
   const sched = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; refresh(); }); };
+  let popRaf = 0;
+  const schedPop = () => { if (!pop.hidden && !popRaf) popRaf = requestAnimationFrame(() => { popRaf = 0; placePop(popAnchor); }); };
   ['selection:created', 'selection:updated', 'selection:cleared', 'object:modified', 'object:scaling', 'object:rotating'].forEach(ev => canvas.on(ev, sched));
+  canvas.on('object:moving', schedPop);
+  canvas.on('mouse:wheel', schedPop);
+  // Close popover when selection cleared
+  canvas.on('selection:cleared', () => closePop());
   window.addEventListener('resize', () => { sched(); if (!pop.hidden) placePop(popAnchor); });
 
   const killPos = () => { bar.style.transform = 'none'; bar.style.left = ''; bar.style.top = ''; };
@@ -460,7 +495,7 @@
 
   root.XTK_CTX_UI = {
     refresh, orderBar, openColor: (t, o) => CP && CP.open(t, o),
-    openPop, openPopWhenReady, closePop, popKind: () => popKind
+    openPop, openPopWhenReady, closePop, placePop, popKind: () => popKind, popEl: () => pop
   };
   refresh();
 })(typeof window !== 'undefined' ? window : globalThis);
