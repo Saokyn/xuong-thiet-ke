@@ -1,5 +1,5 @@
-// Demo/kiểm thử cục bộ (?demo=pick | composite | shapes | textshape): tắt hẳn đồng bộ đám mây.
-if (/[?&]demo=(pick|composite|shapes|textshape)\b/.test(location.search)) window.XTK_CLOUD = {};
+// Demo/kiểm thử cục bộ (?demo=pick | composite | shapes | textshape | palette | toolbar): tắt hẳn đồng bộ đám mây.
+if (/[?&]demo=(pick|composite|shapes|textshape|palette|toolbar)\b/.test(location.search)) window.XTK_CLOUD = {};
 // Đồng bộ đám mây (tùy chọn) — điền thông tin dự án Supabase của bạn.
 // SUPABASE_ANON_KEY là khóa "anon/public" (an toàn để để ở client nhờ RLS). KHÔNG BAO GIỜ dán service_role key vào đây.
 // Để trống cả hai = tắt đồng bộ, ứng dụng chạy hoàn toàn trên máy.

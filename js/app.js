@@ -2,7 +2,7 @@
   const $ = s => document.querySelector(s);
   const FONTS = ['Be Vietnam Pro', 'Montserrat', 'Lora', 'Roboto', 'Playfair Display', 'Dancing Script', 'Lobster', 'Pacifico', 'Bungee', 'Nunito', 'Oswald', 'Merriweather', 'Quicksand', 'Comfortaa', 'Patrick Hand', 'Baloo 2', 'Charm'];
   const P = () => window.XTK_FX.PROPS;
-  const PALETTE = ['#111827', '#ffffff', '#4f46e5', '#7c3aed', '#ec4899', '#ef4444', '#f97316', '#f59e0b', '#10b981', '#06b6d4', '#0ea5e9', '#1e3a8a', '#a16207', '#fef3c7', '#d1d5db'];
+  // Quick colour row is rendered by js/palette-ui.js from XTK_PALETTES.QUICK
   let state = { tpl: null, id: null, pages: [null], cur: 0 };
   let history = [], hIndex = -1, restoring = false;
 
@@ -244,9 +244,7 @@
     canvas.discardActiveObject(); canvas.setActiveObject(objs.length === 1 ? objs[0] : new fabric.ActiveSelection(objs, { canvas })); canvas.requestRenderAll();
   }
 
-  // ---------- Palette
-  const pal = $('#palette');
-  PALETTE.forEach(c => { const s = document.createElement('span'); s.style.background = c; s.title = c; s.onclick = () => applyColor(c); pal.appendChild(s); });
+  // ---------- Palette (single-swatch apply; library + quick row → palette-ui.js)
   function applyColor(c) {
     $('#colorPick').value = c;
     const o = canvas.getActiveObject(); if (!o) return;
@@ -327,31 +325,94 @@
   // ---------- Properties panel
   function renderProps() {
     const o = canvas.getActiveObject(), b = $('#propsBody');
-    if (!o) { b.innerHTML = '<p class="muted">Chọn một đối tượng để chỉnh sửa.</p>'; return; }
-    if (o.type === 'activeSelection') { b.innerHTML = `<p class="muted">Đã chọn ${o.size()} đối tượng. Dùng “Căn chỉnh”, “Nhóm” trên thanh công cụ.</p>`; return; }
+    if (!o) { b.innerHTML = '<p class="muted">Chọn một đối tượng trên thanh ngữ cảnh hoặc canvas để chỉnh nâng cao.</p>'; return; }
+    if (o.type === 'activeSelection') { b.innerHTML = `<p class="muted">Đã chọn ${o.size()} đối tượng. Dùng thanh ngữ cảnh: tô chung, độ mờ, căn chỉnh, nhóm.</p>`; return; }
     const isText = /text/.test(o.type) && !o.xtk?.curved;
+    const isShape = ['rect', 'circle', 'triangle', 'path', 'ellipse', 'polygon'].includes(o.type);
+    const CTX = window.XTK_CTX;
+    const openSec = (() => { try { return JSON.parse(localStorage.getItem('xtk-props-sec') || '{}'); } catch (e) { return {}; } })();
+    const sec = (id, title, body) => `<details class="psec" data-sec="${id}" ${openSec[id] !== false ? 'open' : ''}><summary>${title}</summary>${body}</details>`;
+    const N = (CTX && CTX.NUM) || {};
+    const num = (label, key, value, meta) => {
+      const m = Object.assign({}, N[key] || {}, meta || {});
+      const min = m.min, max = m.max, step = m.step == null ? 1 : m.step, unit = m.unit || '', def = m.def != null ? m.def : value;
+      return `<label class="numrow"><span class="nl">${label}</span>
+        <input type="range" data-p="${key}" data-role="slider" min="${min}" max="${max}" step="${step}" value="${value}">
+        <input type="number" data-p="${key}" data-role="num" min="${min}" max="${max}" step="${step}" value="${value}">
+        <span class="unit">${unit}</span>
+        <button type="button" data-reset="${key}" data-def="${def}" title="Đặt lại">↺</button></label>`;
+    };
+    const dispFs = isText && CTX ? Math.round(CTX.getDisplayFontSize(o)) : Math.round(o.fontSize || 0);
+    const ang = CTX ? CTX.clampAngle(o.angle) : Math.round(((o.angle % 360) + 360) % 360);
+    const opPct = Math.round((o.opacity == null ? 1 : o.opacity) * 100);
     let h = '';
+    h += sec('pos', 'Vị trí & kích thước',
+      `<div class="numpair">${num('X', 'left', Math.round(o.left), { def: 0 })}${num('Y', 'top', Math.round(o.top), { def: 0 })}</div>` +
+      `<div class="numpair">${num('Rộng', 'scaleX', +(+o.scaleX).toFixed(2), { def: 1 })}${num('Cao', 'scaleY', +(+o.scaleY).toFixed(2), { def: 1 })}</div>` +
+      num('Xoay', 'angle', Math.round(ang), { def: 0 }) +
+      num('Độ mờ', 'opacity', opPct, { def: 100 }));
     if (isText) {
-      h += `<label>Font<select data-p="fontFamily">${FONTS.map(f => `<option ${f === o.fontFamily ? 'selected' : ''} style="font-family:'${f}'">${f}</option>`).join('')}</select></label>
-      <label>Cỡ chữ (px)<input type="number" data-p="fontSize" value="${Math.round(o.fontSize)}"></label>
-      <label>Độ đậm<select data-p="fontWeight"><option value="400" ${o.fontWeight != 700 && o.fontWeight != 'bold' ? 'selected' : ''}>Thường</option><option value="700" ${o.fontWeight == 700 || o.fontWeight == 'bold' ? 'selected' : ''}>Đậm</option></select></label>
-      <label>Căn lề<select data-p="textAlign">${['left', 'center', 'right'].map(a => `<option ${a === o.textAlign ? 'selected' : ''}>${a}</option>`).join('')}</select></label>`;
+      h += sec('text', 'Chữ',
+        `<label>Font<select data-p="fontFamily">${FONTS.map(f => `<option ${f === o.fontFamily ? 'selected' : ''} style="font-family:'${f}'">${f}</option>`).join('')}</select></label>` +
+        num('Cỡ chữ hiển thị', 'fontSizeDisp', dispFs, { def: 40 }) +
+        `<label>Độ đậm<select data-p="fontWeight"><option value="400" ${o.fontWeight != 700 && o.fontWeight != 'bold' ? 'selected' : ''}>Thường</option><option value="700" ${o.fontWeight == 700 || o.fontWeight == 'bold' ? 'selected' : ''}>Đậm</option></select></label>` +
+        `<label>Căn lề<select data-p="textAlign">${['left', 'center', 'right'].map(a => `<option ${a === o.textAlign ? 'selected' : ''}>${a}</option>`).join('')}</select></label>` +
+        num('Giãn chữ', 'charSpacing', o.charSpacing || 0, { def: 0 }) +
+        num('Giãn dòng', 'lineHeight', o.lineHeight || 1.16, { def: 1.16 }));
     }
     const fillKey = o.type === 'line' ? 'stroke' : 'fill';
-    if (o.type !== 'image' && !(o.type === 'group' && !o.xtk?.curved)) h += `<label>Màu<input type="color" data-p="${fillKey}" value="${typeof o[fillKey] === 'string' && o[fillKey].startsWith('#') ? o[fillKey].slice(0, 7) : '#000000'}"></label>`;
-    h += `<label>Độ mờ<input type="range" min="0" max="1" step="0.05" data-p="opacity" value="${o.opacity}"></label>
-      <label>Xoay (°)<input type="number" data-p="angle" value="${Math.round(o.angle)}"></label>`;
-    if (o.type === 'image' && state.tpl.print) h += `<p class="small">Độ phân giải hiệu dụng: <b>${Math.round(effDpi(o))} dpi</b></p>`;
+    if (o.type !== 'image' && !(o.type === 'group' && !o.xtk?.curved)) {
+      let colorBody = `<label>Màu <input type="color" data-p="${fillKey}" data-nopv value="${typeof o[fillKey] === 'string' && o[fillKey].startsWith('#') ? o[fillKey].slice(0, 7) : '#000000'}"><button type="button" data-open-color="${fillKey === 'stroke' ? 'stroke' : (/text/.test(o.type) ? 'text' : 'fill')}">Bảng màu…</button></label>`;
+      if (isShape) {
+        colorBody += num('Độ dày nét', 'strokeWidth', Math.round(o.strokeWidth || 0), { def: 0 });
+        colorBody += `<label>Kiểu nét<select data-p="strokeStyle"><option value="solid" ${!(o.strokeDashArray && o.strokeDashArray.length) ? 'selected' : ''}>Liền</option><option value="dash" ${(CTX ? CTX.strokeStyleOf(o) : '') === 'dash' ? 'selected' : ''}>Đứt</option><option value="dot" ${(CTX ? CTX.strokeStyleOf(o) : '') === 'dot' ? 'selected' : ''}>Chấm</option></select></label>`;
+        if (o.type === 'rect') colorBody += num('Bo góc', 'rx', Math.round(o.rx || 0), { def: 0, max: Math.round(Math.min(o.width, o.height) / 2) });
+      }
+      h += sec('color', 'Màu & nét', colorBody);
+    }
+    if (o.type === 'image') {
+      const pct = CTX ? CTX.getImageRadiusPct(o) : 0;
+      h += sec('img', 'Ảnh', num('Bo góc', 'imgRad', pct, { def: 0 }) + (state.tpl.print ? `<p class="small">Độ phân giải hiệu dụng: <b>${Math.round(effDpi(o))} dpi</b></p>` : ''));
+    }
     b.innerHTML = h;
-    b.querySelectorAll('[data-p]').forEach(inp => inp.oninput = () => {
-      const p = inp.dataset.p; let v = inp.value;
-      if (['fontSize', 'opacity', 'angle', 'fontWeight'].includes(p)) v = +v;
-      if (p === 'angle') o.rotate(v); else o.set(p, v);
+    b.querySelectorAll('details[data-sec]').forEach(d => d.addEventListener('toggle', () => {
+      try { const m = JSON.parse(localStorage.getItem('xtk-props-sec') || '{}'); m[d.dataset.sec] = d.open; localStorage.setItem('xtk-props-sec', JSON.stringify(m)); } catch (e) { }
+    }));
+    b.querySelectorAll('[data-open-color]').forEach(btn => btn.onclick = () => window.XTK_COLOR_PANEL && window.XTK_COLOR_PANEL.open(btn.dataset.openColor, o));
+    const applyProp = (p, raw, live) => {
+      let v = raw;
+      if (CTX && CTX.clampNum && ['left','top','scaleX','scaleY','angle','opacity','fontSizeDisp','charSpacing','lineHeight','strokeWidth','rx','imgRad'].includes(p)) v = CTX.clampNum(p, raw);
+      else if (['fontSize', 'fontWeight', 'left', 'top', 'scaleX', 'scaleY', 'opacity', 'angle', 'charSpacing', 'lineHeight', 'strokeWidth', 'rx'].includes(p)) v = +raw;
+      if (p === 'fontSizeDisp' && CTX) CTX.setDisplayFontSize(o, v);
+      else if (p === 'opacity') o.set('opacity', (CTX ? CTX.clampOpacity(v / 100) : Math.min(1, Math.max(0, v / 100))));
+      else if (p === 'angle') o.rotate(CTX ? CTX.clampAngle(v) : +v);
+      else if (p === 'rx') o.set({ rx: +v, ry: +v });
+      else if (p === 'strokeWidth') { o.set('strokeWidth', +v); if (+v > 0 && !o.stroke) o.set('stroke', '#111827'); if (CTX) CTX.syncDashToWidth(o); }
+      else if (p === 'strokeStyle' && CTX) { if (!o.strokeWidth) o.set('strokeWidth', 4); if (!o.stroke) o.set('stroke', '#111827'); CTX.applyStrokeStyle(o, v); }
+      else if (p === 'imgRad' && window.XTK_FX) {
+        const pct = +v; const m = Math.min(o.getScaledWidth(), o.getScaledHeight());
+        (async () => { if (pct > 0) await window.XTK_FX.setClip(o, 'round', pct / 100 * m); else await window.XTK_FX.setClip(o, 'none'); canvas.requestRenderAll(); })();
+        return;
+      }
+      else if (p === 'fontFamily' || p === 'textAlign' || p === 'fontWeight' || p === fillKey) o.set(p, ['fontWeight'].includes(p) ? +v || v : v);
+      else o.set(p, v);
+      if (p === 'charSpacing' || p === 'lineHeight' || p === 'fontSizeDisp') o.initDimensions?.();
       o.setCoords(); canvas.requestRenderAll();
+      // sync twin slider/number
+      b.querySelectorAll(`[data-p="${p}"]`).forEach(el => { if (String(el.value) !== String(v) && el.type !== 'color') el.value = v; });
+    };
+    b.querySelectorAll('[data-p]').forEach(inp => {
+      inp.oninput = () => applyProp(inp.dataset.p, inp.value, true);
+      inp.onchange = () => { applyProp(inp.dataset.p, inp.value, false); snapshot(); refreshLayers(); if (window.XTK_CTX_UI) window.XTK_CTX_UI.refresh(); };
     });
-    b.querySelectorAll('[data-p]').forEach(inp => inp.onchange = () => { snapshot(); refreshLayers(); });
+    b.querySelectorAll('[data-reset]').forEach(btn => btn.onclick = () => {
+      const key = btn.dataset.reset, def = btn.dataset.def;
+      applyProp(key, def, false); snapshot(); refreshLayers(); if (window.XTK_CTX_UI) window.XTK_CTX_UI.refresh();
+      b.querySelectorAll(`[data-p="${key}"]`).forEach(el => { el.value = def; });
+    });
     window.XTK_HOOKS?.props?.(o, b);
   }
+
 
   // ---------- Sample design
   function sampleDesign() {

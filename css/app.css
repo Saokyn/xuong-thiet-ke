@@ -356,3 +356,114 @@ option.fontup{font-weight:600;color:#4f46e5}
 .booldock .bdhandle:active{cursor:grabbing}
 @media (max-width:820px){.booldock:not(.floating){position:fixed;left:0;right:0;bottom:0;z-index:70;margin:0;border-radius:12px 12px 0 0;max-height:45vh;overflow:auto}}
 #fbShape button[hidden],#fbCompStroke[hidden]{display:none!important}
+
+/* Bộ màu thiết kế (tab Nền) */
+.palette-quick{grid-template-columns:repeat(8,1fr);gap:3px}
+.pal-lib{margin:10px 0 12px;border:1px solid #e3e5ee;border-radius:10px;background:#fafbff}
+.pal-lib details{padding:8px 10px}
+.pal-lib summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
+.pal-lib summary::-webkit-details-marker{display:none}
+.pal-lib summary::before{content:'▸';color:#667;font-size:11px}
+.pal-lib details[open] summary::before{content:'▾'}
+#palSearch{width:100%;margin:8px 0 6px;padding:6px 8px;border:1px solid #d5d8e4;border-radius:8px;font:inherit}
+.pal-chips,.cp-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.pal-chips button,.cp-chips button{padding:3px 8px;border-radius:999px;border:1px solid #d5d8e4;background:#fff;font-size:11px;cursor:pointer;width:auto;margin:0;flex:none;text-align:center}
+.pal-chips button.on,.pal-chips button[aria-pressed=true],.cp-chips button.on{background:#4f46e5;color:#fff;border-color:#4f46e5}
+.pal-list{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:6px;-webkit-overflow-scrolling:touch}
+.pal-row{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:4px 8px;align-items:center;padding:6px 8px;background:#fff;border:1px solid #eef0f6;border-radius:8px}
+.pal-meta{grid-column:1;min-width:0}
+.pal-meta b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pal-swatches{grid-column:1;display:grid;grid-template-columns:repeat(4,1fr);gap:3px;max-width:160px}
+.pal-swatches span{aspect-ratio:1;border-radius:5px;cursor:pointer;border:1px solid #0002;min-width:22px}
+.pal-apply{grid-column:2;grid-row:1/span 2;padding:6px 8px;font-size:12px;border-radius:8px;border:1px solid #c7cbe0;background:#eef2ff;color:#3730a3;cursor:pointer;white-space:nowrap;align-self:center}
+.pal-apply:hover{background:#4f46e5;color:#fff;border-color:#4f46e5}
+@media(max-width:820px){
+  .palette-quick{grid-template-columns:repeat(6,1fr)}
+  .pal-list{max-height:200px}
+  .pal-row{grid-template-columns:1fr;grid-template-rows:auto auto auto}
+  .pal-apply{grid-column:1;grid-row:auto;width:100%}
+  .pal-swatches{max-width:none}
+}
+
+
+/* ===== Contextual toolbar (above canvas, Canva-style) ===== */
+.ctx-slot{flex:none;background:#fff;border-bottom:1px solid #e3e5ee;min-height:0;position:relative}
+.ctxbar.floatbar,.floatbar.ctxbar{position:relative;left:auto;top:auto;transform:none!important;width:100%;max-width:none;border:0;border-radius:0;box-shadow:none;padding:4px 8px;gap:6px;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;align-items:center;-webkit-overflow-scrolling:touch}
+.floatbar.ctxbar[hidden]{display:flex!important}
+.ctxbar .fbgrp{display:inline-flex;align-items:center;gap:3px;flex:none}
+.ctxbar .fbgrp[hidden]{display:none!important}
+.ctxbar .fb-sep{width:1px;height:22px;background:#e3e5ee;flex:none;margin:0 2px}
+.ctxbar .swbtn{display:inline-flex;align-items:center;gap:4px;padding:2px 6px}
+.ctxbar .swbtn i{width:18px;height:18px;border-radius:4px;border:1px solid #0003;display:inline-block;background:#ccc;flex:none}
+.ctxbar .swbtn i.ring{box-shadow:inset 0 0 0 3px #fff}
+.ctxbar .fb-num{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:#445;margin:0}
+.ctxbar .fb-num input{width:52px;padding:2px 4px;height:28px}
+.ctxbar .fb-menu{position:relative}
+.ctxbar .fb-menu>summary{list-style:none;cursor:pointer;padding:3px 7px;border:1px solid #e3e5ee;border-radius:6px;font-size:13px;height:28px;box-sizing:border-box;display:flex;align-items:center}
+.ctxbar .fb-menu>summary::-webkit-details-marker{display:none}
+.ctxbar .fb-pop{position:absolute;right:0;top:100%;z-index:30;background:#fff;border:1px solid #e3e5ee;border-radius:8px;box-shadow:0 8px 24px #0002;padding:4px;display:flex;flex-direction:column;min-width:140px}
+.ctxbar .fb-pop button{width:100%;text-align:left;margin:0;height:auto;padding:6px 8px}
+.ctxbar button[aria-pressed=true]{background:#eef2ff;border-color:#a5b4fc}
+.ctxbar #fbSize{width:52px}
+@media(max-width:820px){.ctxbar.floatbar{padding:4px}.ctxbar .fb-num input{width:44px}}
+
+/* Contextual popovers */
+.ctx-pop{position:absolute;z-index:40;min-width:260px;max-width:min(340px,92vw);background:#fff;border:1px solid #e3e5ee;border-radius:10px;box-shadow:0 10px 30px #0003;padding:10px;display:flex;flex-direction:column;gap:6px}
+.ctx-pop[hidden]{display:none!important}
+.ctx-pop header{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.ctx-pop header b{flex:1;font-size:13px}
+.ctx-pop header button{width:auto;margin:0;padding:2px 8px}
+.ctx-pop label{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;margin:0}
+.ctx-pop label input[type=range]{flex:1;min-width:80px}
+.ctx-pop label input[type=number]{width:64px}
+.ctx-pop .swbtn{padding:2px}
+.ctx-pop .primary{width:100%;margin-top:4px}
+
+/* ===== Unified color panel — MUST beat .tools button{width:100%} ===== */
+.tools{position:relative}
+.tools.color-open>.tab,.tools.color-open>#palLib{visibility:hidden;pointer-events:none}
+.tools .color-panel,.color-panel{position:absolute;inset:0;z-index:20;background:#fff;overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;box-sizing:border-box}
+.color-panel[hidden]{display:none!important}
+.tools .color-panel .cp-head{display:flex;align-items:center;gap:8px;position:sticky;top:0;background:#fff;padding:0 0 8px;border-bottom:1px solid #eef0f6;z-index:1;margin:0}
+.tools .color-panel .cp-head b{flex:1;font-size:14px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tools .color-panel .cp-back,
+.tools .color-panel .cp-x,
+.tools .color-panel button.cp-back,
+.tools .color-panel button.cp-x{width:auto;min-width:32px;margin:0;padding:4px 8px;flex:none;text-align:center}
+.tools .color-panel .cp-note{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:6px 8px;border-radius:8px;font-size:12px;margin:0}
+.tools .color-panel .cp-hex{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;margin:0;font-size:12px}
+.tools .color-panel .cp-hex input[type=text]{flex:1;min-width:0;width:auto;margin:0;font-family:ui-monospace,monospace;padding:6px 8px}
+.tools .color-panel .cp-hex input.bad{border-color:#ef4444;background:#fef2f2}
+.tools .color-panel .cp-hex input[type=color]{width:32px;height:32px;padding:2px;margin:0;flex:none;cursor:pointer}
+.tools .color-panel .cp-hex button,
+.tools .color-panel button[data-act=hexok],
+.tools .color-panel button[data-act=eye]{width:auto;min-width:32px;margin:0;padding:4px 8px;flex:none;text-align:center}
+.tools .color-panel h5{margin:4px 0 2px;font-size:11px;text-transform:uppercase;color:#667;letter-spacing:.04em}
+.tools .color-panel .cp-swatches{display:grid;grid-template-columns:repeat(7,28px);gap:6px;justify-content:start;margin:0 0 4px}
+.tools .color-panel button.cp-sw,
+.tools .color-panel .cp-sw{width:28px!important;height:28px!important;min-width:28px;max-width:28px;border-radius:6px;border:1px solid #0002;padding:0;cursor:pointer;margin:0;flex:none;box-sizing:border-box;display:inline-block}
+.tools .color-panel .cp-sw.on{outline:2px solid #4f46e5;outline-offset:1px}
+.tools .color-panel #cpPalQ{width:100%;padding:6px 8px;border:1px solid #d5d8e4;border-radius:8px;margin:0 0 6px;box-sizing:border-box}
+.tools .color-panel .cp-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.tools .color-panel .cp-chips button{padding:3px 8px;border-radius:999px;border:1px solid #d5d8e4;background:#fff;font-size:11px;cursor:pointer;width:auto;margin:0;flex:none;text-align:center}
+.tools .color-panel .cp-chips button.on{background:#4f46e5;color:#fff;border-color:#4f46e5}
+.tools .color-panel .cp-pals{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
+.tools .color-panel .cp-pal{display:flex;align-items:center;gap:8px}
+.tools .color-panel .cp-pal-sw{display:grid;grid-template-columns:repeat(4,22px);gap:2px}
+.tools .color-panel .cp-pal-sw .cp-sw{width:22px!important;height:22px!important;min-width:22px;max-width:22px}
+.tools .color-panel label.small{display:flex;align-items:center;gap:6px;margin:0;font-size:12px}
+.tools .color-panel label.small input[type=checkbox]{width:auto;margin:0}
+.tools .color-panel p.small{margin:0}
+@media(max-width:820px){.tools .color-panel .cp-swatches{grid-template-columns:repeat(6,28px)}}
+
+/* Props numeric rows — one compact line (narrow ~170px panel) */
+.props .numrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:8px;font-size:12px}
+.props .numrow .nl{flex:0 0 100%;font-weight:500;color:#445;margin:0;line-height:1.2}
+.props .numrow input[type=range]{flex:1 1 60px;min-width:40px;width:auto;margin:0}
+.props .numrow input[type=number]{flex:0 0 52px;width:52px;margin:0;padding:2px 4px}
+.props .numrow .unit{flex:none;color:#667;font-size:11px;min-width:12px}
+.props .numrow button[data-reset]{flex:none;width:26px;min-width:26px;margin:0;padding:0;height:26px;line-height:1}
+.props .numpair{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.props .numpair .numrow{margin-bottom:6px}
+.props .psec{border:1px solid #eef0f6;border-radius:8px;padding:4px 8px;margin-bottom:8px;background:#fafbff}
+.props .psec>summary{cursor:pointer;font-weight:600;font-size:13px;padding:4px 0}

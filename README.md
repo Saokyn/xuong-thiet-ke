@@ -189,6 +189,14 @@ Cách hoạt động:
 - **✎ Sửa điểm** (`js/shape-nodes.js`): hình chữ nhật góc vuông → đa giác 4 điểm, tam giác → 3 điểm, đa giác, đường thẳng 1 vòng (vd. kết quả kết hợp không lỗ). Kéo điểm, bấm cạnh để thêm, chọn điểm + Delete để xóa (tối thiểu 3), Enter xong / Esc hủy (1 bước Hoàn tác). Điểm & dung sai theo pixel màn hình. Chặn hoàn tất khi cạnh cắt nhau hoặc hình dẹt. Hình cong (tròn, elip, bo góc, đường cong, nhiều vòng/lỗ) bị từ chối — **không tự làm thẳng**, chưa có tay nắm Bézier.
 - Demo ngoại tuyến: `?demo=shapes`. Kiểm thử: `node tests/shape-boolean.unit.js`, `node tests/shape-nodes.unit.js`.
 
+
+
+## Thanh ngữ cảnh & bảng màu thống nhất (phát hành 2026-11-09)
+Thanh công cụ ngữ cảnh kiểu Canva nằm **phía trên vùng vẽ** (không đè canvas): đổi theo lựa chọn — chữ (phông, cỡ 4–800 = fontSize×scale, màu, B/I/U, căn, hiệu ứng), hình (tô/viền/bo góc), ảnh (cắt/lọc/xóa nền), nhiều đối tượng (tô chung, độ mờ, nhóm), không chọn (màu nền trang). Mọi ô màu mở **bảng màu trái** (Màu trên trang / Gần đây ≤12 / Brand Kit / Màu nhanh / Bộ màu + HEX + hút màu); xem trước; 1 bước hoàn tác mỗi lần chọn. Tab Thuộc tính: mục xổ Vị trí & kích thước (xoay 0–360), Chữ (cỡ hiển thị), Màu & nét. Phím mũi tên dịch 1px (Shift 10px) giữ nguyên. Demo: `?demo=toolbar&sel=text|shape|image|multi` · `&color=1` · `&pop=effects|spacing`. Popover Hiệu ứng/Giãn trên thanh; kiểu nét liền/đứt/chấm; bo góc ảnh; chuyển sắc 2 điểm trong bảng màu; Thuộc tính: mọi số = thanh trượt + ô số + đơn vị + ↺. Module: `js/ctx-tools.js`, `js/color-panel.js`, `js/ctx-toolbar.js`.
+
+## Bộ màu thiết kế (phát hành 2026-11-09)
+Tab **Nền**: hàng ~24 màu nhanh + thư viện **48 bảng × 4 màu** (tự sáng tạo, tên tiếng Việt) theo nhóm Ấm / Lạnh / Trung tính / Pastel / Tươi / Sang / Thiên nhiên / Tối. Lọc chip + tìm tên (không phân biệt dấu). Bấm một ô = tô đối tượng đang chọn, không chọn thì đặt nền. Nút **Áp bộ màu**: nền solid phù hợp sáng/tối, hình tô đặc và chữ theo thứ tự; chữ chọn màu tương phản tốt nhất với nền. **Bỏ qua** ảnh, fill chuyển sắc/hoa văn, Lồng ảnh (composite), đối tượng khóa, nền hoa văn/chuyển sắc hiện có; duyệt nhóm đệ quy; **1 bước Hoàn tác**. Brand Kit / bảng màu từ ảnh / màu AI / gradient / hoa văn giữ nguyên. Dữ liệu: `js/palettes.js`. Demo: `?demo=palette`. Cảm hứng từ phong cách bảng màu Canva (không sao chép tên/hex).
+
 ## Giai đoạn 12 (phát hành 2026-11-08; chưa kiểm tra đầy đủ trên trình duyệt: phông/Worker kết hợp chữ, độ nét, xuất file chưa được kiểm thử giao diện)
 **1. Bảng “Kết hợp hình” không che vùng vẽ** (`js/shape-ui.js`): mặc định nằm trong cột **Thuộc tính** bên phải; nút **⇱ Thả nổi** biến thành bảng nổi có tay kéo ⠿ (kéo chuột/chạm hoặc phím mũi tên), luôn giữ trong màn hình, nhớ vị trí, nút **Đặt lại**; màn hình ≤820 px hiện ở cạnh dưới. Chỉ tay kéo nhận thao tác kéo — không chặn thao tác trên canvas. Bảng nổi vẫn có thể che đối tượng nếu bạn kéo nó lên trên.
 

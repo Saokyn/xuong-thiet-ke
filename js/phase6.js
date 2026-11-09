@@ -26,12 +26,15 @@
   const isText = o => o && /text/i.test(o.type);
   const isImg = o => o && o.type === 'image';
   let hideFor = false;
+  // Contextual toolbar now lives in #ctxBarSlot above the stage (js/ctx-toolbar.js). Keep a light sync for lock state
+  // and text field values when ctx-toolbar is absent; never cover the canvas with absolute positioning.
   function place() {
+    if (!view.classList.contains('active')) return;
+    bar.hidden = false; bar.style.transform = 'none';
     const o = canvas.getActiveObject();
-    if (!o || hideFor || !view.classList.contains('active') || o.isEditing && false) { bar.hidden = true; return; }
-    bar.hidden = false;
+    if (window.XTK_CTX_UI) return; // ctx-toolbar owns visibility
+    if (!o) { $('#fbText').hidden = true; $('#fbImg').hidden = true; return; }
     $('#group').hidden = o.type !== 'activeSelection'; $('#ungroup').hidden = o.type !== 'group';
-    $('#align').hidden = o.type !== 'activeSelection' && false;
     const t = isText(o), im = isImg(o);
     $('#fbText').hidden = !t; $('#fbImg').hidden = !im;
     if (t && document.activeElement?.closest?.('#fbText') == null) {
@@ -39,10 +42,6 @@
       const c = typeof o.fill === 'string' && /^#[0-9a-f]{6}$/i.test(o.fill) ? o.fill : '#000000'; $('#fbColor').value = c;
     }
     $('#lock').classList.toggle('on', !!o.lockMovementX);
-    const r = o.getBoundingRect(), sw = stage.clientWidth, sh = stage.clientHeight, bw = bar.offsetWidth, bh = bar.offsetHeight;
-    let y = r.top - bh - 12; if (y < 6) y = r.top + r.height + 12; if (y + bh > sh - 6) y = Math.max(6, Math.min(sh - bh - 6, r.top + 6));
-    let x = r.left + r.width / 2 - bw / 2; x = Math.max(6, Math.min(sw - bw - 6, x));
-    bar.style.transform = `translate(${Math.round(x)}px,${Math.round(y)}px)`;
   }
   let raf = 0; const sched = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; place(); }); };
   canvas.on('after:render', sched);
@@ -52,7 +51,7 @@
   bar.addEventListener('mousedown', e => e.stopPropagation());
   const setT = (fn) => { const o = canvas.getActiveObject(); if (!isText(o)) return; fn(o); o.setCoords(); canvas.requestRenderAll(); X.snapshot(); X.renderProps?.(); };
   fbFont.onchange = () => setT(o => o.set('fontFamily', fbFont.value));
-  $('#fbSize').onchange = () => setT(o => { const v = Math.max(4, +$('#fbSize').value || 12); o.set({ fontSize: v / (o.scaleY || 1) }); });
+  $('#fbSize').onchange = () => setT(o => { if (window.XTK_CTX) window.XTK_CTX.setDisplayFontSize(o, $('#fbSize').value); else { const v = Math.max(4, Math.min(800, +$('#fbSize').value || 12)); o.set({ fontSize: v, scaleX: 1, scaleY: 1 }); } });
   $('#fbColor').oninput = () => { const o = canvas.getActiveObject(); if (isText(o)) { o.set('fill', $('#fbColor').value); canvas.requestRenderAll(); } };
   $('#fbColor').onchange = () => setT(o => o.set('fill', $('#fbColor').value));
   function openProps(match) {
