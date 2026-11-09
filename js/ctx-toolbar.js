@@ -157,10 +157,47 @@
   }
   function clampPop(host, x, y, pw, ph) {
     const hr = host.getBoundingClientRect();
+    const r = (T.clampPopPos || clampPopPosFallback)(hr.width, hr.height, x, y, pw, ph, 8);
+    return { x: r.x, y: r.y, maxW: r.maxW, maxH: r.maxH, effW: r.effW, effH: r.effH };
+  }
+  function clampPopPosFallback(hostW, hostH, x, y, pw, ph, margin) {
+    margin = margin == null ? 8 : margin;
+    const maxW = Math.max(40, hostW - margin * 2);
+    const maxH = Math.max(80, hostH - margin * 2);
+    const effW = Math.min(Math.max(+pw || 0, 40), maxW);
+    const effH = Math.min(Math.max(+ph || 0, 80), maxH);
     return {
-      x: Math.max(8, Math.min(x, hr.width - pw - 8)),
-      y: Math.max(8, Math.min(y, hr.height - ph - 8))
+      x: Math.min(Math.max(margin, hostW - effW - margin), Math.max(margin, +x || 0)),
+      y: Math.min(Math.max(margin, hostH - effH - margin), Math.max(margin, +y || 0)),
+      maxW, maxH, effW, effH
     };
+  }
+  /** Size pop to available viewport; sticky header + scrollable body. */
+  function layoutPopSize(optX, optY) {
+    if (pop.hidden) return null;
+    const host = ensurePopHost();
+    const hr = host.getBoundingClientRect();
+    const margin = 8;
+    let x = optX != null ? optX : (parseFloat(pop.style.left) || 8);
+    let y = optY != null ? optY : (parseFloat(pop.style.top) || 8);
+    // Remaining space below/right of current top-left (shrink when dragged near edge)
+    const availH = Math.max(120, hr.height - y - margin);
+    const availW = Math.max(200, Math.min(340, hr.width - x - margin));
+    pop.style.maxWidth = availW + 'px';
+    pop.style.maxHeight = availH + 'px';
+    pop.style.width = '';
+    const header = pop.querySelector(':scope > header') || pop.querySelector('header');
+    const body = pop.querySelector('.ctx-pop-body');
+    const hh = header ? (header.offsetHeight || 40) : 40;
+    if (body) {
+      body.style.maxHeight = Math.max(60, availH - hh - 4) + 'px';
+      body.style.overflowY = 'auto';
+      if (!body.dataset.wheelWired) {
+        body.dataset.wheelWired = '1';
+        body.addEventListener('wheel', (e) => { e.stopPropagation(); }, { passive: true });
+      }
+    }
+    return { x, y, availH, availW, hostW: hr.width, hostH: hr.height };
   }
   function closePop(force) {
     if (popHold && force === false) return; // only block outside-click / deselect during hold
@@ -182,13 +219,15 @@
     const host = ensurePopHost();
     const hr = host.getBoundingClientRect();
     pop.hidden = false;
-    const pw = Math.max(260, pop.offsetWidth || 280), ph = Math.max(160, pop.offsetHeight || 200);
-    // Prefer user-dragged / remembered position
+    // First layout at a tentative top so max-height is sane, then measure
+    layoutPopSize(8, 8);
+    const pw = Math.max(260, pop.offsetWidth || 280);
+    const ph = Math.max(120, pop.offsetHeight || 200);
     const remembered = popUserPos || (popKind && loadPopPos(popKind));
     let pos;
     if (remembered) {
       pos = clampPop(host, remembered.x, remembered.y, pw, ph);
-      popUserPos = pos;
+      popUserPos = { x: pos.x, y: pos.y };
     } else if (canvas.getActiveObject() && T.placeAvoiding) {
       const o = canvas.getActiveObject();
       const canvasEl = canvas.upperCanvasEl || canvas.lowerCanvasEl || canvas.getElement();
@@ -196,19 +235,31 @@
       const br = o.getBoundingRect(true, true);
       const ox = cr.left + br.left - hr.left;
       const oy = cr.top + br.top - hr.top;
-      pos = T.placeAvoiding(hr.width, hr.height, pw, ph, ox, oy, br.width, br.height, 8);
+      // placeAvoiding with capped height so tall FX panels stay on-screen
+      const capH = Math.min(ph, Math.max(160, hr.height - 16));
+      pos = T.placeAvoiding(hr.width, hr.height, pw, capH, ox, oy, br.width, br.height, 8);
+      pos = clampPop(host, pos.x, pos.y, pw, capH);
     } else if (anchor) {
       const ar = anchor.getBoundingClientRect();
       let x = ar.left - hr.left, y = ar.bottom - hr.top + 6;
       pos = clampPop(host, x, y, pw, ph);
     } else {
-      pos = { x: hr.width - pw - 8, y: 8 };
+      pos = clampPop(host, hr.width - pw - 8, 8, pw, ph);
     }
     pop.style.left = pos.x + 'px';
     pop.style.top = pos.y + 'px';
+    layoutPopSize(pos.x, pos.y);
+    // Re-clamp after max-height shrinks measured size
+    const pw2 = Math.max(260, pop.offsetWidth || 280);
+    const ph2 = Math.max(120, pop.offsetHeight || 200);
+    pos = clampPop(host, pos.x, pos.y, pw2, ph2);
+    pop.style.left = pos.x + 'px';
+    pop.style.top = pos.y + 'px';
+    layoutPopSize(pos.x, pos.y);
+    popUserPos = { x: pos.x, y: pos.y };
   }
   function wirePopDrag() {
-    const header = pop.querySelector('header');
+    const header = pop.querySelector(':scope > header') || pop.querySelector('header');
     if (!header || header.dataset.dragWired) return;
     header.dataset.dragWired = '1';
     header.style.cursor = 'grab';
@@ -226,10 +277,15 @@
       if (!dragging) return;
       const ev = e.touches ? e.touches[0] : e;
       const host = ensurePopHost();
+      // Tentative position → layout (shrink near bottom) → clamp with effective size
+      let nx = ox + (ev.clientX - sx), ny = oy + (ev.clientY - sy);
+      layoutPopSize(nx, ny);
       const pw = pop.offsetWidth || 280, ph = pop.offsetHeight || 200;
-      const pos = clampPop(host, ox + (ev.clientX - sx), oy + (ev.clientY - sy), pw, ph);
-      popUserPos = pos; pop.style.left = pos.x + 'px'; pop.style.top = pos.y + 'px';
-      if (popKind) savePopPos(popKind, pos);
+      const pos = clampPop(host, nx, ny, pw, ph);
+      popUserPos = { x: pos.x, y: pos.y };
+      pop.style.left = pos.x + 'px'; pop.style.top = pos.y + 'px';
+      layoutPopSize(pos.x, pos.y);
+      if (popKind) savePopPos(popKind, popUserPos);
       e.preventDefault();
     };
     const onUp = () => { dragging = false; header.style.cursor = 'grab'; };
@@ -301,11 +357,13 @@
     if (popKind === 'spacing') {
       pop.setAttribute('aria-label', 'Giãn chữ và dòng');
       pop.innerHTML = `<header><b>↕ Giãn</b><button type="button" data-popx title="Đóng">✕</button></header>
+        <div class="ctx-pop-body">
         <label class="small">Giãn chữ <input type="range" data-k="charSpacing" min="-100" max="1200" step="10" value="${o.charSpacing || 0}">
           <input type="number" data-k="charSpacing" min="-100" max="1200" step="10" value="${o.charSpacing || 0}"></label>
         <label class="small">Giãn dòng <input type="range" data-k="lineHeight" min="0.7" max="2.5" step="0.05" value="${o.lineHeight || 1.16}">
           <input type="number" data-k="lineHeight" min="0.7" max="2.5" step="0.05" value="${o.lineHeight || 1.16}"></label>
-        <button type="button" data-reset-space class="small">↺ Đặt lại</button>`;
+        <button type="button" data-reset-space class="small">↺ Đặt lại</button>
+        </div>`;
       return;
     }
     if (popKind === 'effects-shape') {
@@ -317,12 +375,14 @@
       const fxParams = TF && TF.paramsHtml ? TF.paramsHtml(o) : '';
       const fxPresets = TF && TF.presetsHtml ? TF.presetsHtml(o.xtk && o.xtk.fxPreset) : '';
       pop.innerHTML = `<header><b>✨ Hiệu ứng hình</b><button type="button" data-popreset title="Đặt lại vị trí bảng">⌖</button><button type="button" data-popx title="Đóng">✕</button></header>
+        <div class="ctx-pop-body">
         ${fxPresets}<div class="fx-grid">${fxGrid}</div>${fxParams}
         <label><input type="checkbox" data-c="shadow" ${o.shadow ? 'checked' : ''}> Bóng đổ ${swBtn('shadow', solidHex(sh.color || '#000000'), 'Màu bóng')}</label>
         <label class="small">Độ nhòe <input type="range" data-v="shBlur" min="0" max="100" value="${o.shadow ? Math.round((sh.blur || 0) / u * 1000) : 20}">
           <input type="number" data-v="shBlur" min="0" max="100" value="${o.shadow ? Math.round((sh.blur || 0) / u * 1000) : 20}"></label>
         <label class="small">Lệch <input type="range" data-v="shOff" min="-50" max="50" value="${o.shadow ? Math.round((sh.offsetY || 0) / u * 1000) : 8}">
-          <input type="number" data-v="shOff" min="-50" max="50" value="${o.shadow ? Math.round((sh.offsetY || 0) / u * 1000) : 8}"></label>`;
+          <input type="number" data-v="shOff" min="-50" max="50" value="${o.shadow ? Math.round((sh.offsetY || 0) / u * 1000) : 8}"></label>
+        </div>`;
       return;
     }
     // effects-text
@@ -335,6 +395,7 @@
     const fxParams = TF && TF.paramsHtml ? TF.paramsHtml(o) : '';
     const fxPresets = TF && TF.presetsHtml ? TF.presetsHtml(o.xtk && o.xtk.fxPreset) : '';
     pop.innerHTML = `<header><b>✨ Hiệu ứng chữ</b><button type="button" data-popreset title="Đặt lại vị trí bảng">⌖</button><button type="button" data-popx title="Đóng">✕</button></header>
+      <div class="ctx-pop-body">
       ${fxPresets}<div class="fx-grid">${fxGrid}</div>${fxParams}
       <label><input type="checkbox" data-c="stroke" ${o.stroke ? 'checked' : ''}> Viền chữ ${swBtn('stroke', solidHex(o.stroke || '#000000'), 'Màu viền chữ')}
         <input type="range" data-v="strokeW" min="0" max="40" value="${tw}"><input type="number" data-v="strokeW" min="0" max="40" value="${tw}"></label>
@@ -344,7 +405,8 @@
       <label class="small">Lệch <input type="range" data-v="shOff" min="-50" max="50" value="${o.shadow ? Math.round((sh.offsetY || 0) / u * 1000) : 8}">
         <input type="number" data-v="shOff" min="-50" max="50" value="${o.shadow ? Math.round((sh.offsetY || 0) / u * 1000) : 8}"></label>
       <label><input type="checkbox" data-c="bg" ${o.backgroundColor ? 'checked' : ''}> Nền chữ ${swBtn('textBg', solidHex(o.backgroundColor || '#fde047'), 'Màu nền chữ')}</label>
-      <button type="button" data-curve class="primary">↷ Chữ cong</button>`;
+      <button type="button" data-curve class="primary">↷ Chữ cong</button>
+      </div>`;
   }
 
   function applyEffectsLive() {
@@ -444,6 +506,12 @@
     closePop(false);
   }, true);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { closePop(); e.stopPropagation(); } }, true);
+  let _popResizeT = 0;
+  window.addEventListener('resize', () => {
+    if (pop.hidden) return;
+    clearTimeout(_popResizeT);
+    _popResizeT = setTimeout(() => { placePop(popAnchor); }, 80);
+  });
 
   function refresh() {
     if (!view || !view.classList.contains('active')) { bar.style.display = 'none'; return; }
@@ -619,7 +687,8 @@
 
   root.XTK_CTX_UI = {
     refresh, orderBar, openColor: (t, o) => CP && CP.open(t, o),
-    openPop, openPopWhenReady, closePop, holdPop, placePop, popKind: () => popKind, popEl: () => pop,
+    openPop, openPopWhenReady, closePop, holdPop, placePop, layoutPopSize,
+    popKind: () => popKind, popEl: () => pop,
     clampPop
   };
   refresh();

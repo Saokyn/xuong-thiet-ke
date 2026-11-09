@@ -199,9 +199,17 @@
     let bevelOffset = 0;
     if (puff && !multi) bevelOffset = -bevelSize * 0.12;
 
-    const tracking = multi
-      ? Math.max(bevelSize * 2.35 + 6, strokeHalf ? strokeHalf * 1.1 : 6)
-      : 0;
+    const fontId = settings.fontId || '';
+    const serif = /playfair|lora/i.test(fontId) || hint.serif;
+    // Multi: auto tracking; wide serifs (Playfair) get extra air so "Con cá lóc" doesn't crowd
+    let tracking = 0;
+    if (multi) {
+      tracking = Math.max(bevelSize * 2.35 + 6, strokeHalf ? strokeHalf * 1.1 : 6);
+      if (serif) {
+        const em = +(settings.size || 120);
+        tracking = Math.max(tracking, em * 0.055, bevelSize * 2.8 + 10);
+      }
+    }
 
     const segs = Math.max(1, Math.min(16, +(settings.bevelSegments != null ? settings.bevelSegments : (puff ? 12 : 4))));
     return {
@@ -335,7 +343,9 @@
     settings.text = text;
     const strokeMin = F.estimateMinStroke(pack.font, text, size);
     const letterCount = F.countLetters(text);
-    const ep = extrudeParams(settings, { strokeMin, letterCount });
+    const meta = pack.meta || (F.FONTS && F.FONTS.find(f => f.id === (settings.fontId || 'playfair')));
+    const serif = !!(meta && meta.style === 'serif') || /playfair|lora/i.test(settings.fontId || '');
+    const ep = extrudeParams(settings, { strokeMin, letterCount, serif });
     const lay = F.layoutText(pack.font, text, size, {
       tracking: ep.tracking,
       diacriticLift: (ep.multi && mode === 'puff') ? Math.max(2, ep.bevelSize * 0.4) : 0
@@ -634,7 +644,11 @@
       b.onclick = () => {
         this.el.querySelectorAll('.xtk3d-preset').forEach(x => x.classList.remove('on'));
         b.classList.add('on');
-        this.applySettings(Object.assign({}, DEFAULTS, p.settings));
+        const keep = normalizeText(this.settings && this.settings.text);
+        const next = Object.assign({}, DEFAULTS, p.settings);
+        // Keep user's typed text; only use preset sample when field empty
+        if (keep && keep.trim()) next.text = keep;
+        this.applySettings(next);
       };
       box.appendChild(b);
     });
@@ -937,6 +951,110 @@
     this.editing = null;
   };
 
+  /** World-space AABB corners of an object. */
+  function meshWorldCorners(THREE, obj) {
+    const box = new THREE.Box3().setFromObject(obj);
+    if (!isFinite(box.min.x) || box.isEmpty()) return { box: null, corners: [] };
+    const min = box.min, max = box.max;
+    const corners = [];
+    for (let ix = 0; ix < 2; ix++) for (let iy = 0; iy < 2; iy++) for (let iz = 0; iz < 2; iz++) {
+      corners.push(new THREE.Vector3(
+        ix ? max.x : min.x,
+        iy ? max.y : min.y,
+        iz ? max.z : min.z
+      ));
+    }
+    return { box, corners };
+  }
+
+  /** Project world points with camera → NDC AABB. */
+  function projectCornersNDC(camera, corners) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const v = corners[0] && corners[0].clone ? corners[0].clone() : null;
+    if (!corners.length) return { minX: 0, maxX: 0, minY: 0, maxY: 0, w: 0, h: 0, maxAbs: 0 };
+    const tmp = v || { x: 0, y: 0, z: 0, copy() { return this; }, project() { return this; } };
+    for (let i = 0; i < corners.length; i++) {
+      const p = corners[i].clone().project(camera);
+      if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+    }
+    const maxAbs = Math.max(Math.abs(minX), Math.abs(maxX), Math.abs(minY), Math.abs(maxY));
+    return { minX, maxX, minY, maxY, w: maxX - minX, h: maxY - minY, maxAbs };
+  }
+
+  /**
+   * Frame export camera: keep preview view direction, look at mesh center,
+   * aspect from projected content, dolly out until all 8 bbox corners fit in NDC with margin.
+   * Returns { aspect, width, height, ndc, dist }.
+   */
+  function fitExportFraming(THREE, camera, viewDir, mesh, maxSide, margin) {
+    maxSide = Math.max(512, Math.min(2048, maxSide || 2048));
+    margin = margin == null ? 0.1 : margin;
+    const { box, corners } = meshWorldCorners(THREE, mesh);
+    if (!box || !corners.length) {
+      return { aspect: 1, width: maxSide, height: maxSide, ndc: null, dist: 300, ok: false };
+    }
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    const dir = viewDir.clone().normalize();
+    if (dir.lengthSq() < 1e-8) dir.set(0.15, 0.25, 1).normalize();
+
+    // Seed distance from bbox size
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    let dist = Math.max(size.x, size.y, size.z, 1) * 2.2;
+
+    function place() {
+      camera.position.copy(center).addScaledVector(dir, dist);
+      camera.near = Math.max(0.05, dist / 200);
+      camera.far = Math.max(dist * 40, 2000);
+      camera.lookAt(center);
+      camera.updateMatrixWorld(true);
+      camera.updateProjectionMatrix();
+    }
+
+    // Measure content shape with square aspect first.
+    // IMPORTANT: after a successful fit, NDC AABB is ~1:1 — do NOT re-derive
+    // aspect from post-fit NDC (that wrongly collapses wide text back to square).
+    camera.aspect = 1;
+    place();
+    let ndc = projectCornersNDC(camera, corners);
+    let aspect = ndc.h > 1e-6 ? (ndc.w / ndc.h) : 1;
+    aspect = Math.max(0.28, Math.min(4.5, aspect));
+    camera.aspect = aspect;
+    place();
+
+    // Dolly out until all 8 corners sit inside NDC with margin
+    const limit = 1 - margin;
+    for (let i = 0; i < 32; i++) {
+      ndc = projectCornersNDC(camera, corners);
+      const need = Math.max(
+        Math.abs(ndc.minX), Math.abs(ndc.maxX),
+        Math.abs(ndc.minY), Math.abs(ndc.maxY)
+      );
+      if (!(need > 1e-6)) break;
+      const scale = need / limit;
+      if (scale <= 1.01) break;
+      dist *= scale * 1.03;
+      place();
+    }
+
+    ndc = projectCornersNDC(camera, corners);
+    let width, height;
+    if (aspect >= 1) {
+      width = maxSide;
+      height = Math.max(256, Math.round(maxSide / aspect));
+    } else {
+      height = maxSide;
+      width = Math.max(256, Math.round(maxSide * aspect));
+    }
+    // even pixel sizes
+    width -= width % 2; height -= height % 2;
+    return {
+      aspect, width, height, ndc, dist, center, dir, ok: ndc.maxAbs <= 1.001
+    };
+  }
+
   /** Render transparent PNG, trimmed, long side = maxSide. Contact shadow excluded. */
   Studio.prototype.renderPNG = function (maxSide) {
     maxSide = maxSide || 2048;
@@ -947,39 +1065,71 @@
     const prevBg = this.scene.background;
     this.scene.background = null;
 
-    const side = Math.max(512, Math.min(2048, maxSide));
     const prevSize = new THREE.Vector2();
     this.renderer.getSize(prevSize);
     const prevAspect = this.camera.aspect;
+    const prevNear = this.camera.near;
+    const prevFar = this.camera.far;
+    const prevPos = this.camera.position.clone();
+    const prevQuat = this.camera.quaternion.clone();
+    const prevTarget = this.controls ? this.controls.target.clone() : new THREE.Vector3();
 
-    this.renderer.setSize(side, side, false);
-    this.camera.aspect = 1;
+    // Keep preview orbit direction (camera − target)
+    const viewDir = prevPos.clone().sub(prevTarget);
+    if (viewDir.lengthSq() < 1e-8) viewDir.set(0.15, 0.25, 1);
+
+    const framing = fitExportFraming(THREE, this.camera, viewDir, this.mesh, maxSide, 0.1);
+    const rw = framing.width, rh = framing.height;
+
+    this.renderer.setSize(rw, rh, false);
+    this.camera.aspect = rw / Math.max(1, rh);
     this.camera.updateProjectionMatrix();
+    // Re-assert framing after exact pixel aspect
+    fitExportFraming(THREE, this.camera, viewDir, this.mesh, maxSide, 0.1);
+    this.camera.aspect = rw / Math.max(1, rh);
+    this.camera.updateProjectionMatrix();
+
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.setClearAlpha(0);
     this.renderer.clear(true, true, true);
     this.renderer.render(this.scene, this.camera);
 
+    // Verify coverage (diagnostic; still export even if slightly over — framing should prevent)
+    const { corners } = meshWorldCorners(THREE, this.mesh);
+    const ndcCheck = projectCornersNDC(this.camera, corners);
+    this._lastExportNdc = ndcCheck;
+    this._lastExportSize = { w: rw, h: rh, aspect: rw / rh };
+
     const out = document.createElement('canvas');
-    out.width = side; out.height = side;
+    out.width = rw; out.height = rh;
     const ctx = out.getContext('2d', { alpha: true });
-    ctx.clearRect(0, 0, side, side);
+    ctx.clearRect(0, 0, rw, rh);
     ctx.drawImage(this.renderer.domElement, 0, 0);
 
     // restore view
     this.shadow.visible = prevShadow;
     this.scene.background = prevBg;
+    this.camera.position.copy(prevPos);
+    this.camera.quaternion.copy(prevQuat);
+    this.camera.near = prevNear;
+    this.camera.far = prevFar;
+    this.camera.aspect = prevAspect;
+    this.camera.updateProjectionMatrix();
+    if (this.controls) {
+      this.controls.target.copy(prevTarget);
+      this.controls.update();
+    }
     this.applyViewBg(); // restore studio viewport bg (export used null)
     this._onResize();
     this.ensureLoop();
     this.invalidate();
 
     // Trim by alpha
-    const id = ctx.getImageData(0, 0, side, side);
+    const id = ctx.getImageData(0, 0, rw, rh);
     const d = id.data;
-    let minX = side, minY = side, maxX = 0, maxY = 0, ink = 0;
-    for (let y = 0; y < side; y++) for (let x = 0; x < side; x++) {
-      const a = d[((y * side + x) << 2) + 3];
+    let minX = rw, minY = rh, maxX = 0, maxY = 0, ink = 0;
+    for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) {
+      const a = d[((y * rw + x) << 2) + 3];
       if (a > 10) {
         ink++;
         if (x < minX) minX = x; if (y < minY) minY = y;
@@ -989,7 +1139,7 @@
     if (ink < 8) throw new Error('Xuất PNG trống — mesh không vẽ được pixel.');
     const pad = 8;
     minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
-    maxX = Math.min(side - 1, maxX + pad); maxY = Math.min(side - 1, maxY + pad);
+    maxX = Math.min(rw - 1, maxX + pad); maxY = Math.min(rh - 1, maxY + pad);
     const tw = maxX - minX + 1, th = maxY - minY + 1;
     const trim = document.createElement('canvas');
     trim.width = tw; trim.height = th;
@@ -997,6 +1147,10 @@
     tctx.clearRect(0, 0, tw, th);
     tctx.drawImage(out, minX, minY, tw, th, 0, 0, tw, th);
     const long = Math.max(tw, th);
+    const resultBase = {
+      ink, framing: { aspect: framing.aspect, w: rw, h: rh, ndcMax: ndcCheck.maxAbs },
+      fullWidth: tw >= rw * 0.85 || (ndcCheck.maxAbs <= 1.0)
+    };
     if (long > maxSide) {
       const sc = maxSide / long;
       const f = document.createElement('canvas');
@@ -1005,9 +1159,9 @@
       const fctx = f.getContext('2d', { alpha: true });
       fctx.clearRect(0, 0, f.width, f.height);
       fctx.drawImage(trim, 0, 0, f.width, f.height);
-      return { dataUrl: f.toDataURL('image/png'), ink: ink, w: f.width, h: f.height };
+      return Object.assign({ dataUrl: f.toDataURL('image/png'), w: f.width, h: f.height }, resultBase);
     }
-    return { dataUrl: trim.toDataURL('image/png'), ink: ink, w: tw, h: th };
+    return Object.assign({ dataUrl: trim.toDataURL('image/png'), w: tw, h: th }, resultBase);
   };
 
   Studio.prototype.insertIntoDesign = function () {
@@ -1147,6 +1301,7 @@
     DEFAULTS, PRESETS, open: openStudio, loadBundle, webglOk,
     serializeSettings, buildGeometry, extrudeParams, makeMaterial,
     assignFaceSideGroups, findFreeInsertPos, normalizeText, insetShapes,
+    meshWorldCorners, projectCornersNDC, fitExportFraming,
     starShape, heartShape, getStatus,
     get studio() { return studio; }
   };

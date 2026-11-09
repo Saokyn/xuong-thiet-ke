@@ -245,6 +245,27 @@
     o.dirty = true; return true;
   }
 
+  /**
+   * Clamp popover top-left inside host. When content is taller/wider than the host,
+   * use effective size min(requested, host-2*margin) so Y/X are not locked to a single value.
+   * Returns {x,y,maxW,maxH,effW,effH}.
+   */
+  function clampPopPos(hostW, hostH, x, y, pw, ph, margin) {
+    margin = margin == null ? 8 : margin;
+    hostW = +hostW || 0; hostH = +hostH || 0;
+    const maxW = Math.max(40, hostW - margin * 2);
+    const maxH = Math.max(80, hostH - margin * 2);
+    const effW = Math.min(Math.max(+pw || 0, 40), maxW);
+    const effH = Math.min(Math.max(+ph || 0, 80), maxH);
+    const xMax = Math.max(margin, hostW - effW - margin);
+    const yMax = Math.max(margin, hostH - effH - margin);
+    return {
+      x: Math.min(xMax, Math.max(margin, +x || 0)),
+      y: Math.min(yMax, Math.max(margin, +y || 0)),
+      maxW, maxH, effW, effH
+    };
+  }
+
   // Place a popover box (pw×ph) in host (hw×hh) avoiding object rect (ox,oy,ow,oh) — all same coordinate space.
   // Returns {x,y} top-left. Prefers right of object, then left, then below, then host edge.
   function placeAvoiding(hostW, hostH, pw, ph, ox, oy, ow, oh, margin) {
@@ -275,7 +296,7 @@
     FONT_MIN, FONT_MAX, RECENT_MAX, RECENT_KEY,
     clamp, clampFont, clampAngle, clampOpacity, normHex, validateHex,
     strokeStyleOf, dashForStyle, applyStrokeStyle, syncDashToWidth, getImageRadiusPct, NUM, clampNum,
-    getPixelSize, setPixelSize, placeAvoiding,
+    getPixelSize, setPixelSize, placeAvoiding, clampPopPos,
     getDisplayFontSize, setDisplayFontSize,
     loadRecent, pushRecent, extractDocumentColors,
     colorTargetBlocked, applyColorTarget, applyMulti, isSolidStr

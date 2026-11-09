@@ -55,6 +55,13 @@
           settings: Object.assign({}, (S.PRESETS.find(p => p.id === 'phongHong') || {}).settings || {}, {
             text: 'Xin chào', fontId: 'baloo', mode: 'puff', viewBg: 'light'
           })
+        },
+        {
+          id: 'conCaLoc', label: 'Con cá lóc',
+          settings: Object.assign({}, (S.PRESETS.find(p => p.id === 'vangVatDo') || {}).settings || {}, {
+            text: 'Con cá lóc', fontId: 'playfair', mode: 'bevel', viewBg: 'light',
+            rotX: -0.22, rotY: 0.55
+          })
         }
       ].filter(Boolean);
 
@@ -97,12 +104,25 @@
         status.presets.push(entry);
       }
 
-      // Leave studio open on Phồng hồng + "Xin chào" (no typing needed for screenshots)
+      // URL ?text=… overrides final studio text (e.g. Con%20cá%20lóc); default Phồng "Xin chào"
+      let urlText = null;
+      try {
+        const q = new URLSearchParams(location.search);
+        urlText = q.get('text');
+      } catch (e) { urlText = null; }
+      const vv = S.PRESETS.find(p => p.id === 'vangVatDo') || S.PRESETS[0];
       const ph = S.PRESETS.find(p => p.id === 'phongHong') || S.PRESETS[1];
-      await studio.applySettings(Object.assign({}, S.DEFAULTS, ph.settings, {
-        text: 'Xin chào', viewBg: 'light'
-      }));
-      if (studio.setText) await studio.setText('Xin chào');
+      if (urlText && urlText.trim()) {
+        await studio.applySettings(Object.assign({}, S.DEFAULTS, vv.settings, {
+          text: urlText, viewBg: 'light'
+        }));
+        if (studio.setText) await studio.setText(urlText);
+      } else {
+        await studio.applySettings(Object.assign({}, S.DEFAULTS, ph.settings, {
+          text: 'Xin chào', viewBg: 'light'
+        }));
+        if (studio.setText) await studio.setText('Xin chào');
+      }
       studio.ensureLoop && studio.ensureLoop();
       status.loop = S.getStatus();
       status.studioText = studio.settings && studio.settings.text;

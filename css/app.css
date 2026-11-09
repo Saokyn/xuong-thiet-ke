@@ -408,11 +408,13 @@ option.fontup{font-weight:600;color:#4f46e5}
 @media(max-width:820px){.ctxbar.floatbar{padding:4px}.ctxbar .fb-num input{width:44px}}
 
 /* Contextual popovers */
-.ctx-pop{position:absolute;z-index:40;min-width:260px;max-width:min(340px,92vw);background:#fff;border:1px solid #e3e5ee;border-radius:10px;box-shadow:0 10px 30px #0003;padding:10px;display:flex;flex-direction:column;gap:6px}
+.ctx-pop{position:absolute;z-index:40;min-width:260px;max-width:min(340px,92vw);background:#fff;border:1px solid #e3e5ee;border-radius:10px;box-shadow:0 10px 30px #0003;padding:0;display:flex;flex-direction:column;gap:0;box-sizing:border-box;overflow:hidden;min-height:0}
 .ctx-pop[hidden]{display:none!important}
-.ctx-pop header{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.ctx-pop>header,.ctx-pop header.ctx-pop-drag{flex:0 0 auto;display:flex;align-items:center;gap:8px;margin:0;padding:10px 10px 6px;background:#fff;position:sticky;top:0;z-index:2;border-bottom:1px solid #f1f5f9}
 .ctx-pop header b{flex:1;font-size:13px}
 .ctx-pop header button{width:auto;margin:0;padding:2px 8px}
+.ctx-pop-body{flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:8px 10px 10px;display:flex;flex-direction:column;gap:6px}
+.ctx-pop.ctx-pop-stage{max-height:calc(100% - 16px)}
 .ctx-pop label{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;margin:0}
 .ctx-pop label input[type=range]{flex:1;min-width:80px}
 .ctx-pop label input[type=number]{width:64px}
