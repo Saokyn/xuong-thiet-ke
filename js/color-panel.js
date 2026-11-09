@@ -16,8 +16,9 @@
 
   function titleFor(target, obj) {
     const base = ({ fill: 'Màu tô', stroke: 'Màu viền', text: 'Màu chữ', textBg: 'Nền chữ', shadow: 'Màu bóng', bg: 'Màu nền trang' })[target] || 'Chọn màu';
-    const typeName = obj && ({ textbox: 'Chữ', 'i-text': 'Chữ', text: 'Chữ', rect: 'Hình chữ nhật', circle: 'Hình tròn', ellipse: 'Elip', triangle: 'Tam giác', path: 'Đường', group: 'Nhóm', image: 'Ảnh' })[obj.type];
-    const name = obj && (obj.name || (root.XTK_LAYERS && root.XTK_LAYERS.layerName && root.XTK_LAYERS.layerName(obj)) || typeName || obj.type);
+    const typeName = obj && ({ textbox: 'Chữ', 'i-text': 'Chữ', text: 'Chữ', rect: 'Hình', circle: 'Hình tròn', ellipse: 'Elip', triangle: 'Tam giác', path: 'Đường', group: 'Nhóm', image: 'Ảnh' })[obj.type];
+    let name = obj && (obj.name || (root.XTK_LAYERS && root.XTK_LAYERS.layerName && root.XTK_LAYERS.layerName(obj)) || typeName || obj.type);
+    if (name && name.length > 22) name = name.slice(0, 20) + '…';
     return name && target !== 'bg' ? base + ' – ' + name : base;
   }
   function currentHexOf(target, obj) {

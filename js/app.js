@@ -273,6 +273,10 @@
   document.addEventListener('input', e => { const t = e.target; if (t.type === 'color' && !t.dataset.nopv && t.closest('#view-designer') && !t.closest('[data-tab="brand"]')) previewBegin(); }, true);
   function snapshot() {
     if (restoring || !state.tpl || preview.on) return;
+    const PS = window.XTK_PROPS_SESSION;
+    if (PS && PS._state && PS._state.suppressSnap) return;
+    // While props session is dirty, toolbar/other code may still snapshot — that's OK (immediate tools).
+    // Props panel itself uses commitMicro instead.
     const j = JSON.stringify(canvas.toJSON(P()));
     if (history[hIndex] === j) return;
     history = history.slice(0, hIndex + 1); history.push(j);
@@ -282,7 +286,7 @@
     if (preview.on) { previewEnd(); i = hIndex; } // undo/redo while previewing = cancel the preview
     if (i < 0 || i >= history.length) return;
     hIndex = i; restoring = true;
-    canvas.loadFromJSON(history[i], () => { restoring = false; canvas.renderAll(); refreshLayers(); renderProps(); checkDpi(); });
+    canvas.loadFromJSON(history[i], () => { restoring = false; canvas.renderAll(); refreshLayers(); renderProps(); checkDpi(); try { window.XTK_COMPOSITE && window.XTK_COMPOSITE.healZombies && window.XTK_COMPOSITE.healZombies(); window.XTK_TEXT_FX && window.XTK_TEXT_FX.installAll && window.XTK_TEXT_FX.installAll(canvas); } catch (e) { } });
   }
   $('#undo').onclick = () => restore(hIndex - 1);
   $('#redo').onclick = () => restore(hIndex + 1);
@@ -414,20 +418,24 @@
     };
     b.querySelectorAll('[data-p]').forEach(inp => {
       const only = inp.closest('.numrow-only');
-      const commit = () => { applyProp(inp.dataset.p, inp.type === 'checkbox' ? inp.checked : inp.value, false); snapshot(); refreshLayers(); if (window.XTK_CTX_UI) window.XTK_CTX_UI.refresh(); };
+      const PS = () => window.XTK_PROPS_SESSION;
+      const commit = () => {
+        applyProp(inp.dataset.p, inp.type === 'checkbox' ? inp.checked : inp.value, false);
+        if (PS() && PS().active()) { PS().commitMicro(); }
+        else snapshot();
+        refreshLayers(); if (window.XTK_CTX_UI) window.XTK_CTX_UI.refresh();
+      };
       if (only) {
-        // Live preview while typing optional; commit on blur / Enter → 1 undo
-        inp.oninput = () => applyProp(inp.dataset.p, inp.value, true);
+        inp.oninput = () => { applyProp(inp.dataset.p, inp.value, true); if (PS()) PS().noteChange(); };
         inp.onchange = commit;
         inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); commit(); } };
       } else if (inp.type === 'checkbox') {
         inp.onchange = commit;
       } else {
-        inp.oninput = () => applyProp(inp.dataset.p, inp.value, true);
+        inp.oninput = () => { applyProp(inp.dataset.p, inp.value, true); if (PS()) PS().noteChange(); };
         inp.onchange = commit;
       }
     });
-    // Bảng màu… → full color panel jump (target + highlight + focus)
     b.querySelectorAll('[data-open-color]').forEach(btn => btn.onclick = () => {
       const t = btn.dataset.openColor;
       const hex = typeof o[t === 'stroke' ? 'stroke' : 'fill'] === 'string' ? o[t === 'stroke' ? 'stroke' : 'fill'] : null;
@@ -435,7 +443,10 @@
     });
     b.querySelectorAll('[data-reset]').forEach(btn => btn.onclick = () => {
       const key = btn.dataset.reset, def = btn.dataset.def;
-      applyProp(key, def, false); snapshot(); refreshLayers(); if (window.XTK_CTX_UI) window.XTK_CTX_UI.refresh();
+      applyProp(key, def, false);
+      if (window.XTK_PROPS_SESSION && window.XTK_PROPS_SESSION.active()) window.XTK_PROPS_SESSION.commitMicro();
+      else snapshot();
+      refreshLayers(); if (window.XTK_CTX_UI) window.XTK_CTX_UI.refresh();
       b.querySelectorAll(`[data-p="${key}"]`).forEach(el => { el.value = def; });
     });
     window.XTK_HOOKS?.props?.(o, b);
@@ -613,5 +624,5 @@
 
   renderTemplates();
   // Hooks for automated tests
-  window.XTK = { colorPreview: preview, previewBegin, previewCommit, previewCancel, fitPage, zoomAt, zoomSmooth, panBy, setView, view, fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, selectLowDpi, lowDpi: () => lowDpi.slice(), fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, isRestoring: () => restoring, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
+  window.XTK = { colorPreview: preview, previewBegin, previewCommit, previewCancel, previewEnd, fitPage, zoomAt, zoomSmooth, panBy, setView, view, fitScale, openDoc, snapshot, restore, refreshLayers, renderProps, center, U, toast, checkDpi, selectLowDpi, lowDpi: () => lowDpi.slice(), fit, applyColor, FONTS, thumb, del, setRestoring: v => restoring = v, isRestoring: () => restoring, resetHistory: () => { history = []; hIndex = -1; }, openTemplate, sampleDesign, doExport, show, renderAI, exportDesign: (o) => Exporter.exportDesign(canvas, state.tpl.w, state.tpl.h, o), state, canvas };
 })();

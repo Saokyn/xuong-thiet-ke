@@ -78,8 +78,16 @@
     if (target === 'bg') return null;
     if (!obj) return 'Chưa chọn đối tượng.';
     if (obj.type === 'image') return 'Ảnh không tô màu đặc — dùng bộ lọc hoặc Lồng ảnh.';
-    if (obj.xtk && obj.xtk.composite) return 'Đối tượng đang chứa ảnh — “Tách ảnh” trước khi đổi màu.';
-    if (target === 'fill' && obj.fill && typeof obj.fill === 'object') return 'Đang dùng chuyển sắc/hoa văn — tắt trước hoặc chọn mục khác.';
+    if (obj.xtk && obj.xtk.composite) {
+      if (target === 'stroke') return null; // viền vẫn chỉnh được khi đang Lồng ảnh
+      return 'Đối tượng đang chứa ảnh — “Tách ảnh” trước khi đổi màu.';
+    }
+    if (target === 'fill' && obj.fill && typeof obj.fill === 'object') {
+      const isGrad = Array.isArray(obj.fill.colorStops);
+      const isPat = !isGrad && (obj.fill.patternTransform || obj.fill.type === 'pattern' || obj.fill.source != null);
+      if (isPat) return 'Đang dùng hoa văn / Lồng ảnh — Tách ảnh trước.';
+      return 'Đang dùng chuyển sắc/hoa văn — tắt trước hoặc chọn mục khác.';
+    }
     return null;
   }
 
@@ -97,7 +105,8 @@
     if (!obj) return { ok: false, error: 'Chưa chọn đối tượng.' };
     const targets = obj.type === 'activeSelection' ? obj.getObjects() : [obj];
     targets.forEach(t => {
-      if (t.type === 'image' || (t.xtk && t.xtk.composite)) return;
+      if (t.type === 'image') return;
+      if (t.xtk && t.xtk.composite && target !== 'stroke') return;
       if (t.type === 'group' && !(t.xtk && t.xtk.curved)) {
         (t.getObjects ? t.getObjects() : []).forEach(ch => applyChild(ch, target, c));
         t.dirty = true; return;

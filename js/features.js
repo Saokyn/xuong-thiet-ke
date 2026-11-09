@@ -269,7 +269,12 @@
 
   // ================= Properties panel extensions
   const hex = v => typeof v === 'string' && /^#[0-9a-f]{6}/i.test(v) ? v.slice(0, 7) : (typeof v === 'string' && /^#[0-9a-f]{3}$/i.test(v) ? '#' + [...v.slice(1)].map(c => c + c).join('') : '#000000');
-  const commit = () => { canvas.requestRenderAll(); X.snapshot(); };
+  const CL = () => window.XTK_COMPOSITE_LIB || window.XTK_COMPOSITE || {};
+  const isGradFill = f => CL().isGradientFill ? CL().isGradientFill(f) : !!(f && typeof f === 'object' && f.colorStops);
+  const isPatFill = f => CL().isPatternFill ? CL().isPatternFill(f) : !!(f && typeof f === 'object' && !isGradFill(f) && (f.patternTransform || f.type === 'pattern'));
+  const isComp = o => !!(o && o.xtk && o.xtk.composite);
+  const needsRestore = o => CL().needsPatternRestore ? CL().needsPatternRestore(o) : (isComp(o) && !isPatFill(o.fill));
+  const commit = () => { canvas.requestRenderAll(); if (window.XTK_PROPS_SESSION && window.XTK_PROPS_SESSION.active()) window.XTK_PROPS_SESSION.commitMicro(); else X.snapshot(); };
   function sec(b, title, html) { const d = document.createElement('details'); d.className = 'psec'; d.open = true; d.innerHTML = `<summary>${title}</summary>${html}`; b.appendChild(d); return d; }
   function bind(root, sel, ev, fn) { root.querySelectorAll(sel).forEach(el => el.addEventListener(ev, () => fn(el))); }
   H.props = (o, b) => {
@@ -279,6 +284,14 @@
     common.innerHTML = `<button data-a="lock">${o.xtk?.locked ? '🔓 Mở khóa' : '🔒 Khóa'}</button><button data-a="dup">⧉ Nhân bản</button>` + (o.type === 'group' && !o.xtk?.curved ? '<button data-a="ungroup">◫ Bỏ nhóm</button>' : '');
     b.prepend(common);
     bind(common, '[data-a]', 'click', el => ({ lock: toggleLock, dup: duplicate, ungroup })[el.dataset.a]());
+    if (needsRestore(o)) {
+      const rz = document.createElement('div'); rz.className = 'row';
+      rz.innerHTML = `<button type="button" data-a="restoreComp" class="primary">🖼 Khôi phục ảnh lồng</button><p class="small muted">Ảnh lồng bị mất khỏi phần tô — bấm để dựng lại từ bản đã lưu.</p>`;
+      b.appendChild(rz);
+      rz.querySelector('[data-a=restoreComp]').onclick = () => {
+        const C = window.XTK_COMPOSITE; if (C && C.restorePattern) C.restorePattern(o).then(() => X.renderProps());
+      };
+    }
     if (o.type === 'textbox' || o.type === 'i-text' || o.type === 'text') textProps(o, b, u);
     if (o.xtk?.curved) curvedProps(o, b, u);
     if (o.type === 'image') imageProps(o, b);
@@ -295,19 +308,24 @@
       <label class="small">Độ nhòe <input type="range" min="0" max="100" data-v="shBlur" value="${o.shadow ? Math.round(sh.blur / u * 1000) : 20}"></label>
       <label class="small">Lệch <input type="range" min="-50" max="50" data-v="shOff" value="${o.shadow ? Math.round(sh.offsetY / u * 1000) : 8}"></label>
       <label><input type="checkbox" data-c="bg" ${o.backgroundColor ? 'checked' : ''}> Nền chữ <input type="color" data-v="bgColor" value="${hex(o.backgroundColor || '#fde047')}"></label>
-      <label><input type="checkbox" data-c="grad" ${o.fill && typeof o.fill === 'object' ? 'checked' : ''}> Màu chuyển sắc <input type="color" data-v="g1" value="#6366f1"><input type="color" data-v="g2" value="#ec4899"></label>
+      ${isComp(o)
+        ? `<p class="small muted">Hình đang chứa ảnh — Tách ảnh để dùng chuyển sắc</p>`
+        : `<label><input type="checkbox" data-c="grad" ${isGradFill(o.fill) ? 'checked' : ''} ${isPatFill(o.fill) ? 'disabled' : ''}> Màu chuyển sắc <input type="color" data-v="g1" value="#6366f1" ${isPatFill(o.fill) ? 'disabled' : ''}><input type="color" data-v="g2" value="#ec4899" ${isPatFill(o.fill) ? 'disabled' : ''}></label>`}
       <button data-t="curve">↷ Chuyển thành chữ cong</button>`);
-    const v = k => d.querySelector(`[data-v=${k}]`), c = k => d.querySelector(`[data-c=${k}]`).checked;
+    const v = k => d.querySelector(`[data-v=${k}]`), c = k => { const el = d.querySelector(`[data-c=${k}]`); return !!(el && el.checked); };
     const apply = () => {
       o.set({ stroke: c('stroke') ? v('strokeColor').value : null, strokeWidth: c('stroke') ? o.fontSize * +v('strokeW').value / 200 : 1, paintFirst: 'stroke' });
       o.set('shadow', c('shadow') ? new fabric.Shadow({ color: v('shColor').value, blur: +v('shBlur').value / 1000 * u, offsetX: +v('shOff').value / 1000 * u, offsetY: +v('shOff').value / 1000 * u }) : null);
       o.set('backgroundColor', c('bg') ? v('bgColor').value : '');
-      if (c('grad')) o.set('fill', new fabric.Gradient(gradObj(v('g1').value, v('g2').value, 0)));
-      else if (typeof o.fill === 'object') o.set('fill', v('g1').value);
+      if (!isComp(o) && !isPatFill(o.fill)) {
+        if (c('grad')) o.set('fill', new fabric.Gradient(gradObj(v('g1').value, v('g2').value, 0)));
+        else if (isGradFill(o.fill)) o.set('fill', v('g1').value);
+      }
       o.dirty = true; canvas.requestRenderAll();
+      if (window.XTK_PROPS_SESSION) window.XTK_PROPS_SESSION.noteChange();
     };
-    bind(d, '[data-v],[data-c]', 'input', apply); bind(d, '[data-v],[data-c]', 'change', () => X.snapshot());
-    bind(d, '[data-k]', 'input', el => { o.set(el.dataset.k, +el.value); o.initDimensions?.(); canvas.requestRenderAll(); }); bind(d, '[data-k]', 'change', () => X.snapshot());
+    bind(d, '[data-v],[data-c]', 'input', apply); bind(d, '[data-v],[data-c]', 'change', () => { if (window.XTK_PROPS_SESSION && window.XTK_PROPS_SESSION.active()) window.XTK_PROPS_SESSION.commitMicro(); else X.snapshot(); });
+    bind(d, '[data-k]', 'input', el => { o.set(el.dataset.k, +el.value); o.initDimensions?.(); canvas.requestRenderAll(); if (window.XTK_PROPS_SESSION) window.XTK_PROPS_SESSION.noteChange(); }); bind(d, '[data-k]', 'change', () => { if (window.XTK_PROPS_SESSION && window.XTK_PROPS_SESSION.active()) window.XTK_PROPS_SESSION.commitMicro(); else X.snapshot(); });
     bind(d, '[data-t]', 'click', el => {
       const t = el.dataset.t;
       if (t === 'upper') { const x = o.xtk || {}; if (x.upper) { o.set('text', x.orig ?? o.text.toLowerCase()); delete x.upper; delete x.orig; } else { x.orig = o.text; x.upper = 1; o.set('text', o.text.toUpperCase()); } o.xtk = x; }
@@ -333,17 +351,34 @@
     });
   }
   function shapeProps(o, b, u) {
-    const d = sec(b, 'Viền & chuyển sắc', `<label><input type="checkbox" data-c="st" ${o.stroke ? 'checked' : ''}> Viền <input type="color" data-v="stc" value="${hex(o.stroke || '#111827')}"> <input type="range" min="1" max="60" data-v="stw" value="${o.stroke ? Math.max(1, Math.round(o.strokeWidth * o.scaleX / u * 1000)) : 8}"></label>
+    const comp = isComp(o), pat = isPatFill(o.fill), gradOn = isGradFill(o.fill);
+    const gradBlock = comp
+      ? `<p class="small muted">Hình đang chứa ảnh — Tách ảnh để dùng chuyển sắc</p>`
+      : `<label><input type="checkbox" data-c="gr" ${gradOn ? 'checked' : ''} ${pat ? 'disabled' : ''}> Chuyển sắc <input type="color" data-v="g1" value="#6366f1" ${pat ? 'disabled' : ''}><input type="color" data-v="g2" value="#ec4899" ${pat ? 'disabled' : ''}><select data-v="gt" ${pat ? 'disabled' : ''}><option value="0">Ngang</option><option value="90">Dọc</option><option value="45">Chéo</option><option value="radial">Tỏa</option></select></label>`;
+    const d = sec(b, 'Viền & chuyển sắc', `<label><input type="checkbox" data-c="st" ${o.stroke ? 'checked' : ''}> Viền <input type="color" data-v="stc" value="${hex(o.stroke || '#111827')}"> <input type="range" min="1" max="60" data-v="stw" value="${o.stroke ? Math.max(1, Math.round((o.strokeWidth || 0) * (o.scaleX || 1) / u * 1000)) : 8}"></label>
       ${o.type === 'rect' ? `<label>Bo góc<input type="range" min="0" max="${Math.round(Math.min(o.width, o.height) / 2)}" data-v="rx" value="${o.rx || 0}"></label>` : ''}
-      <label><input type="checkbox" data-c="gr" ${typeof o.fill === 'object' && o.fill ? 'checked' : ''}> Chuyển sắc <input type="color" data-v="g1" value="#6366f1"><input type="color" data-v="g2" value="#ec4899"><select data-v="gt"><option value="0">Ngang</option><option value="90">Dọc</option><option value="45">Chéo</option><option value="radial">Tỏa</option></select></label>`);
-    const v = k => d.querySelector(`[data-v=${k}]`), c = k => d.querySelector(`[data-c=${k}]`).checked;
+      ${gradBlock}`);
+    const v = k => d.querySelector(`[data-v=${k}]`), c = k => { const el = d.querySelector(`[data-c=${k}]`); return !!(el && el.checked); };
     bind(d, '[data-v],[data-c]', 'input', () => {
-      o.set({ stroke: c('st') ? v('stc').value : (o.type === 'path' && !o.fill ? o.stroke : null), strokeWidth: c('st') ? +v('stw').value / 1000 * u / o.scaleX : o.strokeWidth });
+      const turningOn = c('st');
+      let sw = o.strokeWidth;
+      if (turningOn) {
+        sw = +v('stw').value / 1000 * u / (o.scaleX || 1);
+        if (!(sw > 0)) sw = 4 / (o.scaleX || 1);
+      }
+      o.set({ stroke: turningOn ? v('stc').value : (o.type === 'path' && !o.fill ? o.stroke : null), strokeWidth: turningOn ? sw : o.strokeWidth });
       if (v('rx')) o.set({ rx: +v('rx').value, ry: +v('rx').value });
-      if (c('gr')) o.set('fill', new fabric.Gradient(gradObj(v('g1').value, v('g2').value, v('gt').value))); else if (typeof o.fill === 'object' && o.fill) o.set('fill', v('g1').value);
+      if (!comp && !pat) {
+        if (c('gr')) o.set('fill', new fabric.Gradient(gradObj(v('g1').value, v('g2').value, v('gt').value)));
+        else if (isGradFill(o.fill)) o.set('fill', v('g1').value);
+      }
       o.dirty = true; canvas.requestRenderAll();
+      if (window.XTK_PROPS_SESSION) window.XTK_PROPS_SESSION.noteChange();
     });
-    bind(d, '[data-v],[data-c]', 'change', () => X.snapshot());
+    bind(d, '[data-v],[data-c]', 'change', () => {
+      if (window.XTK_PROPS_SESSION && window.XTK_PROPS_SESSION.active()) window.XTK_PROPS_SESSION.commitMicro();
+      else X.snapshot();
+    });
   }
   const FILTERS = [['brightness', 'Độ sáng', -100, 100, 0], ['contrast', 'Tương phản', -100, 100, 0], ['saturation', 'Bão hòa', -100, 100, 0], ['blur', 'Làm mờ', 0, 100, 0]];
   const FTOGGLES = [['grayscale', 'Đen trắng'], ['sepia', 'Sepia'], ['vintage', 'Cổ điển'], ['sharpen', 'Làm nét']];

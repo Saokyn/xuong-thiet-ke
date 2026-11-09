@@ -124,7 +124,7 @@
     pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-modal', 'false');
     (slot || bar.parentNode || document.body).appendChild(pop);
   }
-  let popKind = null, popAnchor = null;
+  let popKind = null, popAnchor = null, popHold = 0;
 
   const fbColor = $('#fbColor');
   if (fbColor) fbColor.title = 'Màu chữ';
@@ -143,9 +143,33 @@
     btn.dataset.c = color || '';
   }
 
-  function closePop() {
+  const POP_POS_KEY = 'xtk-pop-pos';
+  let popUserPos = null; // {x,y} while this pop open; persisted per kind
+  function loadPopPos(kind) {
+    try { const m = JSON.parse(localStorage.getItem(POP_POS_KEY) || '{}'); return m[kind] || null; } catch (e) { return null; }
+  }
+  function savePopPos(kind, pos) {
+    try { const m = JSON.parse(localStorage.getItem(POP_POS_KEY) || '{}'); m[kind] = pos; localStorage.setItem(POP_POS_KEY, JSON.stringify(m)); } catch (e) { }
+  }
+  function clearPopPos(kind) {
+    try { const m = JSON.parse(localStorage.getItem(POP_POS_KEY) || '{}'); delete m[kind]; localStorage.setItem(POP_POS_KEY, JSON.stringify(m)); } catch (e) { }
+    popUserPos = null;
+  }
+  function clampPop(host, x, y, pw, ph) {
+    const hr = host.getBoundingClientRect();
+    return {
+      x: Math.max(8, Math.min(x, hr.width - pw - 8)),
+      y: Math.max(8, Math.min(y, hr.height - ph - 8))
+    };
+  }
+  function closePop(force) {
+    if (popHold && force === false) return; // only block outside-click / deselect during hold
     pop.hidden = true; pop.innerHTML = ''; popKind = null; popAnchor = null;
-    pop.style.left = pop.style.top = '';
+    pop.style.left = pop.style.top = ''; popUserPos = null;
+  }
+  function holdPop(ms) {
+    popHold++;
+    setTimeout(() => { popHold = Math.max(0, popHold - 1); }, ms || 1500);
   }
   // Host popover on stage-wrap so it can sit beside the selection without covering it
   function ensurePopHost() {
@@ -157,12 +181,16 @@
   function placePop(anchor) {
     const host = ensurePopHost();
     const hr = host.getBoundingClientRect();
-    // measure after visible
     pop.hidden = false;
     const pw = Math.max(260, pop.offsetWidth || 280), ph = Math.max(160, pop.offsetHeight || 200);
-    const o = canvas.getActiveObject();
+    // Prefer user-dragged / remembered position
+    const remembered = popUserPos || (popKind && loadPopPos(popKind));
     let pos;
-    if (o && T.placeAvoiding) {
+    if (remembered) {
+      pos = clampPop(host, remembered.x, remembered.y, pw, ph);
+      popUserPos = pos;
+    } else if (canvas.getActiveObject() && T.placeAvoiding) {
+      const o = canvas.getActiveObject();
       const canvasEl = canvas.upperCanvasEl || canvas.lowerCanvasEl || canvas.getElement();
       const cr = canvasEl.getBoundingClientRect();
       const br = o.getBoundingRect(true, true);
@@ -172,14 +200,45 @@
     } else if (anchor) {
       const ar = anchor.getBoundingClientRect();
       let x = ar.left - hr.left, y = ar.bottom - hr.top + 6;
-      x = Math.max(8, Math.min(x, hr.width - pw - 8));
-      y = Math.max(8, Math.min(y, hr.height - ph - 8));
-      pos = { x, y };
+      pos = clampPop(host, x, y, pw, ph);
     } else {
       pos = { x: hr.width - pw - 8, y: 8 };
     }
     pop.style.left = pos.x + 'px';
     pop.style.top = pos.y + 'px';
+  }
+  function wirePopDrag() {
+    const header = pop.querySelector('header');
+    if (!header || header.dataset.dragWired) return;
+    header.dataset.dragWired = '1';
+    header.style.cursor = 'grab';
+    header.classList.add('ctx-pop-drag');
+    let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+    const onDown = (e) => {
+      if (e.target.closest('[data-popx],[data-popreset]')) return;
+      const ev = e.touches ? e.touches[0] : e;
+      dragging = true; header.style.cursor = 'grabbing';
+      sx = ev.clientX; sy = ev.clientY;
+      ox = parseFloat(pop.style.left) || 0; oy = parseFloat(pop.style.top) || 0;
+      e.preventDefault();
+    };
+    const onMove = (e) => {
+      if (!dragging) return;
+      const ev = e.touches ? e.touches[0] : e;
+      const host = ensurePopHost();
+      const pw = pop.offsetWidth || 280, ph = pop.offsetHeight || 200;
+      const pos = clampPop(host, ox + (ev.clientX - sx), oy + (ev.clientY - sy), pw, ph);
+      popUserPos = pos; pop.style.left = pos.x + 'px'; pop.style.top = pos.y + 'px';
+      if (popKind) savePopPos(popKind, pos);
+      e.preventDefault();
+    };
+    const onUp = () => { dragging = false; header.style.cursor = 'grab'; };
+    header.addEventListener('mousedown', onDown);
+    header.addEventListener('touchstart', onDown, { passive: false });
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchend', onUp);
   }
   function openPop(kind, anchor) {
     refresh(); // ensure groups visible for anchors
@@ -192,19 +251,43 @@
     } else return false;
     popAnchor = anchor || (popKind === 'spacing' ? $('#fbSpacing') : (isText(o) ? $('#fbTextFx') : $('#fbShapeFx')));
     if (!popAnchor) return false;
+    popUserPos = loadPopPos(popKind);
     renderPop();
     pop.hidden = false;
     placePop(popAnchor);
-    const focusable = pop.querySelector('input,button,select'); if (focusable) try { focusable.focus({ preventScroll: true }); } catch (e) { }
+    wirePopDrag();
+    if (!popHold) {
+      const focusable = pop.querySelector('input,button,select'); if (focusable) try { focusable.focus({ preventScroll: true }); } catch (e) { }
+    }
     return true;
   }
-  // Demo/helper: retry until selection + toolbar ready
+  // Demo/helper: retry until selection + toolbar anchors ready. Holds pop open against outside-click.
   function openPopWhenReady(kind, tries) {
-    tries = tries == null ? 12 : tries;
-    const ok = openPop(kind);
-    if (ok) return true;
+    tries = tries == null ? 40 : tries;
+    // Ensure designer view active / toolbar visible
+    if (view && !view.classList.contains('active')) return false;
+    refresh();
+    const o = canvas.getActiveObject();
+    if (o) {
+      if (isText(o)) {
+        if ($('#fbText')) $('#fbText').hidden = false;
+        if ($('#fbTextExtra')) $('#fbTextExtra').hidden = false;
+      } else if (isShape(o)) {
+        if ($('#fbShapeTools')) $('#fbShapeTools').hidden = false;
+      }
+    }
+    const want = (kind === 'spacing') ? 'spacing'
+      : (isText(o) ? 'effects-text' : (isShape(o) ? 'effects-shape' : null));
+    const anchor = kind === 'spacing' ? $('#fbSpacing')
+      : (isText(o) ? $('#fbTextFx') : $('#fbShapeFx'));
+    if (!pop.hidden && popKind === want && pop.innerHTML) { holdPop(1200); return true; }
+    if (o && anchor) {
+      holdPop(2000);
+      const ok = openPop(kind, anchor);
+      if (ok && !pop.hidden && pop.innerHTML) return true;
+    }
     if (tries <= 0) return false;
-    setTimeout(() => openPopWhenReady(kind, tries - 1), 100);
+    setTimeout(() => openPopWhenReady(kind, tries - 1), 50);
     return false;
   }
 
@@ -227,8 +310,14 @@
     }
     if (popKind === 'effects-shape') {
       const sh = o.shadow || {};
+      const TF = root.XTK_TEXT_FX;
+      const fxId = (o.xtk && o.xtk.fx && o.xtk.fx.kind) || 'none';
+      const fxGrid = TF ? TF.listFor(false).map(f => `<button type="button" class="fx-thumb${fxId === f.id ? ' on' : ''}" data-fx="${f.id}" title="${f.label}"><span>${f.thumb}</span><small>${f.label}</small></button>`).join('') : '';
       pop.setAttribute('aria-label', 'Hiệu ứng hình');
-      pop.innerHTML = `<header><b>✨ Hiệu ứng hình</b><button type="button" data-popx title="Đóng">✕</button></header>
+      const fxParams = TF && TF.paramsHtml ? TF.paramsHtml(o) : '';
+      const fxPresets = TF && TF.presetsHtml ? TF.presetsHtml(o.xtk && o.xtk.fxPreset) : '';
+      pop.innerHTML = `<header><b>✨ Hiệu ứng hình</b><button type="button" data-popreset title="Đặt lại vị trí bảng">⌖</button><button type="button" data-popx title="Đóng">✕</button></header>
+        ${fxPresets}<div class="fx-grid">${fxGrid}</div>${fxParams}
         <label><input type="checkbox" data-c="shadow" ${o.shadow ? 'checked' : ''}> Bóng đổ ${swBtn('shadow', solidHex(sh.color || '#000000'), 'Màu bóng')}</label>
         <label class="small">Độ nhòe <input type="range" data-v="shBlur" min="0" max="100" value="${o.shadow ? Math.round((sh.blur || 0) / u * 1000) : 20}">
           <input type="number" data-v="shBlur" min="0" max="100" value="${o.shadow ? Math.round((sh.blur || 0) / u * 1000) : 20}"></label>
@@ -239,8 +328,14 @@
     // effects-text
     const sh = o.shadow || {};
     const tw = o.stroke && o.fontSize ? Math.round(o.strokeWidth / o.fontSize * 200) : 6;
+    const TF = root.XTK_TEXT_FX;
+    const fxId = (o.xtk && o.xtk.fx && o.xtk.fx.kind) || 'none';
+    const fxGrid = TF ? TF.listFor(true).map(f => `<button type="button" class="fx-thumb${fxId === f.id ? ' on' : ''}" data-fx="${f.id}" title="${f.label}"><span>${f.thumb}</span><small>${f.label}</small></button>`).join('') : '';
     pop.setAttribute('aria-label', 'Hiệu ứng chữ');
-    pop.innerHTML = `<header><b>✨ Hiệu ứng chữ</b><button type="button" data-popx title="Đóng">✕</button></header>
+    const fxParams = TF && TF.paramsHtml ? TF.paramsHtml(o) : '';
+    const fxPresets = TF && TF.presetsHtml ? TF.presetsHtml(o.xtk && o.xtk.fxPreset) : '';
+    pop.innerHTML = `<header><b>✨ Hiệu ứng chữ</b><button type="button" data-popreset title="Đặt lại vị trí bảng">⌖</button><button type="button" data-popx title="Đóng">✕</button></header>
+      ${fxPresets}<div class="fx-grid">${fxGrid}</div>${fxParams}
       <label><input type="checkbox" data-c="stroke" ${o.stroke ? 'checked' : ''}> Viền chữ ${swBtn('stroke', solidHex(o.stroke || '#000000'), 'Màu viền chữ')}
         <input type="range" data-v="strokeW" min="0" max="40" value="${tw}"><input type="number" data-v="strokeW" min="0" max="40" value="${tw}"></label>
       <label><input type="checkbox" data-c="shadow" ${o.shadow ? 'checked' : ''}> Bóng đổ ${swBtn('shadow', solidHex(sh.color || '#000000'), 'Màu bóng')}</label>
@@ -271,6 +366,14 @@
 
   pop.addEventListener('input', e => {
     const t = e.target;
+    if (t.dataset.fxp && root.XTK_TEXT_FX) {
+      const o = canvas.getActiveObject(); if (!o) return;
+      const key = t.dataset.fxp;
+      const val = t.type === 'color' ? t.value : +t.value;
+      root.XTK_TEXT_FX.updateParam(o, key, val);
+      pop.querySelectorAll(`[data-fxp="${key}"]`).forEach(el => { if (el !== t && el.type !== 'color') el.value = val; });
+      o.dirty = true; canvas.requestRenderAll(); return;
+    }
     if (t.dataset.k) {
       const o = canvas.getActiveObject(); if (!isText(o)) return;
       const key = t.dataset.k, val = T.clampNum(key, t.value);
@@ -279,18 +382,36 @@
       o.dirty = true; canvas.requestRenderAll(); return;
     }
     if (t.dataset.v || t.dataset.c != null || t.type === 'checkbox') {
-      // sync paired range/number
       if (t.dataset.v) pop.querySelectorAll(`[data-v="${t.dataset.v}"]`).forEach(el => { if (el !== t) el.value = t.value; });
       applyEffectsLive();
     }
   });
   pop.addEventListener('change', e => {
-    if (e.target.dataset.k || e.target.dataset.v || e.target.type === 'checkbox') {
+    if (e.target.dataset.k || e.target.dataset.v || e.target.dataset.fxp || e.target.type === 'checkbox') {
       X.snapshot && X.snapshot(); X.renderProps && X.renderProps();
     }
   });
   pop.addEventListener('click', e => {
     if (e.target.closest('[data-popx]')) return closePop();
+    if (e.target.closest('[data-popreset]')) {
+      if (popKind) clearPopPos(popKind);
+      placePop(popAnchor); return;
+    }
+    const presetBtn = e.target.closest('[data-fxpreset]');
+    if (presetBtn && root.XTK_TEXT_FX) {
+      const o = canvas.getActiveObject(); if (!o) return;
+      root.XTK_TEXT_FX.applyPreset(o, presetBtn.dataset.fxpreset);
+      o.dirty = true; canvas.requestRenderAll(); snap(); // one undo
+      renderPop(); wirePopDrag(); placePop(popAnchor); return;
+    }
+    const fxBtn = e.target.closest('[data-fx]');
+    if (fxBtn && root.XTK_TEXT_FX) {
+      const o = canvas.getActiveObject(); if (!o) return;
+      if (o.xtk) { const x = { ...o.xtk }; delete x.fxPreset; o.xtk = x; }
+      root.XTK_TEXT_FX.apply(o, fxBtn.dataset.fx);
+      o.dirty = true; canvas.requestRenderAll(); snap();
+      renderPop(); wirePopDrag(); placePop(popAnchor); return;
+    }
     if (e.target.closest('[data-reset-space]')) {
       const o = canvas.getActiveObject(); if (!isText(o)) return;
       o.set({ charSpacing: 0, lineHeight: 1.16 }); if (o.initDimensions) o.initDimensions();
@@ -320,7 +441,7 @@
     if (pop.hidden) return;
     if (pop.contains(e.target) || (popAnchor && popAnchor.contains(e.target))) return;
     if (e.target.closest && e.target.closest('#colorPanel')) return; // keep pop while picking color
-    closePop();
+    closePop(false);
   }, true);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { closePop(); e.stopPropagation(); } }, true);
 
@@ -475,12 +596,12 @@
   let raf = 0;
   const sched = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; refresh(); }); };
   let popRaf = 0;
-  const schedPop = () => { if (!pop.hidden && !popRaf) popRaf = requestAnimationFrame(() => { popRaf = 0; placePop(popAnchor); }); };
+  const schedPop = () => { if (!pop.hidden && !popRaf) popRaf = requestAnimationFrame(() => { popRaf = 0; if (!popUserPos) placePop(popAnchor); }); };
   ['selection:created', 'selection:updated', 'selection:cleared', 'object:modified', 'object:scaling', 'object:rotating'].forEach(ev => canvas.on(ev, sched));
   canvas.on('object:moving', schedPop);
   canvas.on('mouse:wheel', schedPop);
   // Close popover when selection cleared
-  canvas.on('selection:cleared', () => closePop());
+  canvas.on('selection:cleared', () => closePop(false));
   window.addEventListener('resize', () => { sched(); if (!pop.hidden) placePop(popAnchor); });
 
   const killPos = () => { bar.style.transform = 'none'; bar.style.left = ''; bar.style.top = ''; };
@@ -493,9 +614,13 @@
     // no wrap needed — refresh on selection/modified is enough; also hook snapshot path
   }
 
+  if (root.XTK_TEXT_FX && root.XTK_TEXT_FX.init) root.XTK_TEXT_FX.init(X);
+  if (root.XTK_PROPS_SESSION_BOOT && root.XTK_PROPS_SESSION_BOOT.init) root.XTK_PROPS_SESSION_BOOT.init(X);
+
   root.XTK_CTX_UI = {
     refresh, orderBar, openColor: (t, o) => CP && CP.open(t, o),
-    openPop, openPopWhenReady, closePop, placePop, popKind: () => popKind, popEl: () => pop
+    openPop, openPopWhenReady, closePop, holdPop, placePop, popKind: () => popKind, popEl: () => pop,
+    clampPop
   };
   refresh();
 })(typeof window !== 'undefined' ? window : globalThis);

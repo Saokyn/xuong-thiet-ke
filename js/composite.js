@@ -37,7 +37,11 @@
   const FRAME_TYPES = ['rect', 'circle', 'ellipse', 'triangle', 'polygon', 'path', 'textbox', 'i-text', 'text'];
   const isText = o => /text/.test(o.type || '');
   const isComposite = o => !!(o && o.xtk && o.xtk.composite);
-  // Validate a selection; returns {image, frame} or {error:'…' (Vietnamese guidance)}
+  // Fill kind: Pattern (Lồng ảnh) vs Gradient vs solid string
+  const isGradientFill = f => !!(f && typeof f === 'object' && Array.isArray(f.colorStops));
+  const isPatternFill = f => !!(f && typeof f === 'object' && !isGradientFill(f) && (f.patternTransform || f.type === 'pattern' || f.source != null));
+  const needsPatternRestore = o => isComposite(o) && !isPatternFill(o.fill);
+  // Validate a selection; returns {image, frame[, replace]} or {error:'…'}
   function classify(objs) {
     if (!objs || objs.length !== 2) return { error: 'Chọn đúng 2 đối tượng: 1 ảnh và 1 hình khối hoặc chữ.' };
     const imgs = objs.filter(o => o.type === 'image'), rest = objs.filter(o => o.type !== 'image');
@@ -45,9 +49,9 @@
     const image = imgs[0], frame = rest[0];
     if (image.xtk && image.xtk.cell) return { error: 'Ảnh này đang nằm trong ô khung ảnh — hãy dùng ảnh rời.' };
     if (!FRAME_TYPES.includes(frame.type)) return { error: frame.type === 'group' ? 'Không lồng vào nhóm — hãy bỏ nhóm rồi chọn 1 hình.' : 'Loại đối tượng này chưa hỗ trợ lồng ảnh (chỉ hình khối hoặc chữ).' };
-    if (isComposite(frame)) return { error: 'Hình/chữ này đã có ảnh — dùng “Thay ảnh” hoặc “Tách ảnh” trước.' };
     if ((frame.xtk && frame.xtk.locked) || (image.xtk && image.xtk.locked)) return { error: 'Có lớp đang khóa — mở khóa trước.' };
     if (!(frame.width > 0 && frame.height > 0)) return { error: 'Hình/chữ quá nhỏ để lồng ảnh.' };
+    if (isComposite(frame)) return { image, frame, replace: true };
     return { image, frame };
   }
   const MAX_SIDE = 8192, MAX_PIXELS = 40e6; // browser canvas safety limits for the display source
@@ -79,28 +83,78 @@
     }
     function setP(frame, P) { frame.fill.patternTransform = round(P); frame.dirty = true; canvas.requestRenderAll(); }
 
-    async function lồng(objs, mode) { // mode: 'keep' (default: image stays where it is on the page, if it covers the frame) | 'fill'
+    async function lồng(objs, mode) { // mode: 'keep' | 'fill'; if frame already composite → replace image (1 undo)
       const r = classify(objs); if (r.error) { toast(r.error, 2400); return null; }
       const { image, frame } = r;
-      if (canvas.getActiveObject() && canvas.getActiveObject().type === 'activeSelection') canvas.discardActiveObject(); // objects back to scene coords
+      if (canvas.getActiveObject() && canvas.getActiveObject().type === 'activeSelection') canvas.discardActiveObject();
       await fontsReady(frame);
       frame.setCoords(); image.setCoords();
       const { W, H } = box(frame), so = sourceOf(image), src = so.src, k = so.k, sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height;
-      let P = mode === 'fill' ? null : mul(placement(frame.calcTransformMatrix(), W, H, image.calcTransformMatrix(), image.width, image.height), S(1 / k));
+      let P = mode === 'fill' || r.replace ? null : mul(placement(frame.calcTransformMatrix(), W, H, image.calcTransformMatrix(), image.width, image.height), S(1 / k));
       if (P && !covers(P, W, H, sw, sh)) { P = null; toast('Ảnh không phủ kín ' + (isText(frame) ? 'chữ' : 'hình') + ' ở vị trí hiện tại — đã chuyển sang “Lấp đầy”. Có thể chỉnh lại trong ✥ Chỉnh ảnh.', 3200); }
       if (!P) P = fitMatrix(W, H, sw, sh, 'fill');
       quiet(() => {
-        frame.xtk = { ...(frame.xtk || {}), composite: { v: 1, image: image.toObject(PROPS()), prevFill: typeof frame.fill === 'string' ? frame.fill : null, prevStroke: frame.stroke || null, sw, sh, k } };
+        const prev = (frame.xtk && frame.xtk.composite) || {};
+        const prevFill = r.replace ? (prev.prevFill != null ? prev.prevFill : (typeof frame.fill === 'string' ? frame.fill : null))
+          : (typeof frame.fill === 'string' ? frame.fill : null);
+        const prevStroke = r.replace ? (prev.prevStroke !== undefined ? prev.prevStroke : frame.stroke || null) : (frame.stroke || null);
+        frame.xtk = { ...(frame.xtk || {}), composite: { v: 1, image: image.toObject(PROPS()), prevFill, prevStroke, sw, sh, k } };
         frame.set('fill', pattern(src, P)); frame.dirty = true; canvas.remove(image);
       });
       canvas.setActiveObject(frame); canvas.requestRenderAll(); X.snapshot && X.snapshot(); X.refreshLayers && X.refreshLayers();
+      if (r.replace) toast('Đã thay ảnh lồng (ảnh cũ bỏ)', 1600);
       return frame;
     }
-    // Text/shape outline on/off while the image fills it (restored on Tách ảnh); one undo step
+    // Outline on/off; if strokeWidth is 0 when turning on → default ~4px; open colour panel on stroke
+    function defaultStrokeW(frame) {
+      const side = Math.min(Math.abs(frame.width || 40), Math.abs(frame.height || 40));
+      return Math.max(4, Math.round(side * 0.035)); // scales with object, never < 4
+    }
     function toggleStroke(frame) {
-      if (!isComposite(frame)) return; const c = frame.xtk.composite;
-      quiet(() => { frame.set('stroke', frame.stroke ? null : (c.prevStroke || '#1e293b')); frame.dirty = true; });
-      canvas.requestRenderAll(); X.snapshot && X.snapshot(); return !!frame.stroke;
+      if (!isComposite(frame)) return false;
+      const c = frame.xtk.composite;
+      const hasStroke = !!(frame.stroke && frame.strokeWidth > 0);
+      quiet(() => {
+        if (!hasStroke) {
+          const kept = (frame.xtk && frame.xtk._strokeW) || 0;
+          let w = kept >= 2 ? kept : defaultStrokeW(frame);
+          if (w < 4) w = 4;
+          // if previous kept was tiny (<2), bump
+          frame.set({ stroke: c.prevStroke || '#0f172a', strokeWidth: w, strokeUniform: true });
+        } else if ((frame.strokeWidth || 0) < 2) {
+          // already "on" but invisible → bump instead of turning off
+          frame.set({ strokeWidth: Math.max(4, defaultStrokeW(frame)), strokeUniform: true });
+        } else {
+          frame.xtk = { ...(frame.xtk || {}), _strokeW: frame.strokeWidth || 4 };
+          frame.set('stroke', null); // keep strokeWidth for next time
+        }
+        frame.dirty = true;
+      });
+      canvas.requestRenderAll(); X.snapshot && X.snapshot();
+      if (frame.stroke && root.XTK_COLOR_PANEL) {
+        try { root.XTK_COLOR_PANEL.open('stroke', frame, { hex: frame.stroke, ensureVisible: true }); } catch (e) { }
+      }
+      return !!frame.stroke;
+    }
+    // Rebuild Pattern fill from xtk.composite.image when zombie (meta without Pattern)
+    function restorePattern(frame) {
+      if (!needsPatternRestore(frame) || !frame.xtk.composite.image) return Promise.resolve(null);
+      const c = frame.xtk.composite;
+      return new Promise(res => fabric.util.enlivenObjects([c.image], ([img]) => {
+        if (!img || !img.width) { toast('Không khôi phục được ảnh lồng.', 2000); return res(null); }
+        const so = sourceOf(img), src = so.src, k = so.k;
+        const sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height;
+        c.sw = sw; c.sh = sh; c.k = k;
+        const { W, H } = box(frame);
+        quiet(() => { frame.set('fill', pattern(src, fitMatrix(W, H, sw, sh, 'fill'))); frame.dirty = true; });
+        canvas.requestRenderAll(); X.snapshot && X.snapshot(); X.refreshLayers && X.refreshLayers();
+        toast('Đã khôi phục ảnh lồng', 1400); res(frame);
+      }));
+    }
+    function healZombies() {
+      const list = (canvas.getObjects() || []).filter(needsPatternRestore);
+      if (!list.length) return Promise.resolve(0);
+      return list.reduce((p, fr) => p.then(n => restorePattern(fr).then(r => n + (r ? 1 : 0))), Promise.resolve(0));
     }
     function reset(frame, mode) { const c = frame.xtk.composite, { W, H } = box(frame); setP(frame, fitMatrix(W, H, c.sw, c.sh, mode || 'fill')); }
     function tách(frame) {
@@ -127,6 +181,8 @@
     let ed = null;
     function begin(frame) {
       if (!isComposite(frame) || ed) return;
+      if (needsPatternRestore(frame)) { restorePattern(frame).then(r => { if (r) begin(r); }); return; }
+      if (!frame.fill || !frame.fill.patternTransform) { toast('Ảnh lồng bị lỗi — bấm “Khôi phục ảnh lồng”.', 2200); return; }
       const lockKeys = ['lockMovementX', 'lockMovementY', 'lockScalingX', 'lockScalingY', 'lockRotation', 'hasControls'];
       ed = { frame, P0: frame.fill.patternTransform.slice(), locks: Object.fromEntries(lockKeys.map(k => [k, frame[k]])), drag: null };
       frame.set({ lockMovementX: true, lockMovementY: true, lockScalingX: true, lockScalingY: true, lockRotation: true, hasControls: false });
@@ -150,9 +206,14 @@
     document.addEventListener('keydown', e => { if (!ed) return; if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(false); } else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); end(true); } }, true);
     canvas.on('selection:cleared', () => end(true));
 
-    const api = { toggleStroke, lồng, nest: lồng, release: tách, replace: thayẢnh, reset, begin, end, editing: () => ed && ed.frame, classify, isComposite };
+    // After document open, heal zombies (xtk.composite without Pattern fill)
+    window.XTK_HOOKS = window.XTK_HOOKS || {};
+    const prevOpened = window.XTK_HOOKS.opened;
+    window.XTK_HOOKS.opened = function () { try { healZombies(); } catch (e) { } if (typeof prevOpened === 'function') prevOpened.apply(this, arguments); };
+
+    const api = { toggleStroke, lồng, nest: lồng, release: tách, replace: thayẢnh, reset, begin, end, editing: () => ed && ed.frame, classify, isComposite, restorePattern, healZombies, needsPatternRestore };
     window.XTK_COMPOSITE = api; return api;
   }
-  const api = { capScale, MAX_SIDE, MAX_PIXELS, mul, inv, T, S, apply, fitMatrix, placement, releaseMatrix, decompose, pan, zoomAround, covers, classify, isComposite, init };
+  const api = { capScale, MAX_SIDE, MAX_PIXELS, mul, inv, T, S, apply, fitMatrix, placement, releaseMatrix, decompose, pan, zoomAround, covers, classify, isComposite, isGradientFill, isPatternFill, needsPatternRestore, init };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.XTK_COMPOSITE_LIB = api;
 })(typeof window !== 'undefined' ? window : globalThis);
